@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import ChatBubble from '@/app/components/ChatBubble';
 import ChatInput from '@/app/components/ChatInput';
 import ChatHeader from '@/app/components/Header';
-import SchedulePanel from '@/app/components/SchedulePanel';
+
 import SafeModeBanner from '@/app/components/SafeModeBanner';
 import { useConversations } from '@/app/context/ConversationContext';
 import MoodSelector from '@/app/components/MoodSelect';
@@ -100,9 +100,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const { addConversation, updateConversationTitle } = useConversations();
   const [moodchoose, setMoodchoose] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [challengeOpen, setChallengeOpen] = useState(false);
-  const [scheduleCount, setScheduleCount] = useState(0);
   const [streak, setStreak] = useState(0);
   const { isListening, isSpeaking, transcript, error: voiceError, startListening, stopListening, speak, cancelSpeech, resetTranscript } = useVoice();
   const prevListeningRef = useRef(isListening);
@@ -187,22 +185,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
   }, [voiceError]);
 
 
-  // Fetch today's schedule count for the badge
-  const fetchScheduleCount = useCallback(async () => {
-    try {
-      const from = new Date();
-      from.setHours(0, 0, 0, 0);
-      const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      const res = await fetch(`/api/schedule?userId=${userId}&from=${from.toISOString()}&to=${to.toISOString()}`);
-      if (res.ok) {
-        const items = await res.json();
-        setScheduleCount(items.length);
-      }
-    } catch { /* ignore */ }
-  }, [userId]);
-
   useEffect(() => {
-    fetchScheduleCount();
     // Fetch streak
     if (userId) {
       fetch(`/api/users/${userId}/streak`)
@@ -210,11 +193,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
         .then(data => setStreak(data.streak))
         .catch(() => { });
     }
-    const timer = setInterval(() => {
-      fetchScheduleCount();
-    }, 120000); // refresh every 2 min
-    return () => clearInterval(timer);
-  }, [fetchScheduleCount, userId]);
+  }, [userId]);
 
   // Check SAFE_MODE status on mount
   useEffect(() => {
@@ -425,9 +404,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
           aiName={aiName}
           onOpenSidebar={onOpenSidebar}
           onExport={messages.length > 0 ? handleExport : undefined}
-          onOpenSchedule={() => setScheduleOpen(true)}
           onOpenChallenge={() => setChallengeOpen(true)}
-          scheduleCount={scheduleCount}
           streak={streak}
         />
 
@@ -536,14 +513,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
         )
       }
 
-      <SchedulePanel
-        userId={userId}
-        isOpen={scheduleOpen}
-        onClose={() => {
-          setScheduleOpen(false);
-          fetchScheduleCount();
-        }}
-      />
+
     </div >
   );
 }

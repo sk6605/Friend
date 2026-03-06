@@ -57,7 +57,6 @@ model User {
   conversations Conversation[]
   dailyInsights DailyInsight[]
   subscription  Subscription?
-  scheduleItems ScheduleItem[]
   notifications Notification[]
   crisisEvents  CrisisEvent[]
   growthReports GrowthReport[]
@@ -161,31 +160,7 @@ model Otp {
   @@index([email, used])
 }
 
-// ─── Schedule & Notification System ─────────────────────────────
-
-model ScheduleItem {
-  id        String   @id @default(cuid())
-
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-
-  subject   String            // "Team meeting", "Doctor appointment"
-  date      DateTime          // The date+time of the event
-  endTime   DateTime?         // Optional end time
-  type      String   @default("event")   // event | task | meeting | reminder
-  source    String   @default("ai")      // ai | manual
-
-  conversationId String?      // Which conversation it was extracted from
-
-  notifyAt  DateTime?         // When to send the reminder (10 min before by default)
-  notified  Boolean  @default(false) // Has the reminder been sent?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, date])
-  @@index([notifyAt, notified])
-}
+// ─── Notification System ─────────────────────────────────────
 
 model Notification {
   id        String   @id @default(cuid())

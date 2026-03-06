@@ -1,0 +1,12 @@
+{
+    "crons": [
+        {
+            "path": "/api/cron/proactive-care?key=kai0509.",
+            "schedule": "0 1 * * *"
+        },
+        {
+            "path": "/api/cron/rain-alert?key=kai0509.",
+            "schedule": "30 23 * * *"
+        }
+    ]
+}

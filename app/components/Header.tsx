@@ -2,17 +2,13 @@ export default function ChatHeader({
   aiName,
   onOpenSidebar,
   onExport,
-  onOpenSchedule,
   onOpenChallenge,
-  scheduleCount,
   streak,
 }: {
   aiName?: string;
   onOpenSidebar?: () => void;
   onExport?: () => void;
-  onOpenSchedule?: () => void;
   onOpenChallenge?: () => void;
-  scheduleCount?: number;
   streak?: number;
 }) {
   return (
@@ -82,25 +78,7 @@ export default function ChatHeader({
           </button>
         )}
 
-        {/* Schedule icon */}
-        {onOpenSchedule && (
-          <button
-            onClick={onOpenSchedule}
-            className="relative p-1.5 rounded-lg text-neutral-400 dark:text-neutral-500 hover:text-purple-500 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-white/5 transition-colors"
-            aria-label="View schedule"
-            title="Schedule"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-            </svg>
-            {scheduleCount !== undefined && scheduleCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-purple-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold">
-                {scheduleCount > 9 ? '9+' : scheduleCount}
-              </span>
-            )}
-          </button>
-        )}
+
 
         <span className="flex items-center gap-1.5 text-xs text-emerald-500 dark:text-emerald-400">
           <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
