@@ -317,7 +317,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
       />
 
       {/* Modal */}
-      <div role="dialog" aria-modal="true" aria-label="Settings" className="relative w-full max-w-md mx-4 bg-white dark:bg-[#1e1b2e] rounded-2xl shadow-2xl border border-purple-100 dark:border-purple-800/40 overflow-hidden max-h-[90vh] flex flex-col">
+      <div role="dialog" aria-modal="true" aria-label="Settings" className="relative w-full max-w-md mx-4 bg-[#faf7f2] dark:bg-[#1e1b2e] rounded-2xl shadow-2xl border border-purple-100 dark:border-purple-800/40 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-purple-50 dark:border-purple-800/30">
           <div className="flex items-center gap-2">

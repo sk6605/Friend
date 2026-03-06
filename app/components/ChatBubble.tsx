@@ -113,7 +113,7 @@ export default function ChatBubble({ role, content, messageId, createdAt, onDele
             role="dialog"
             aria-modal="true"
             aria-label="Confirm delete message"
-            className="bg-white dark:bg-[#1e1b2e] rounded-2xl shadow-2xl border border-purple-100/60 dark:border-purple-800/40 w-80 overflow-hidden"
+            className="bg-[#faf7f2] dark:bg-[#1e1b2e] rounded-2xl shadow-2xl border border-purple-100/60 dark:border-purple-800/40 w-80 overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             <div className="pt-5 pb-2 flex justify-center">

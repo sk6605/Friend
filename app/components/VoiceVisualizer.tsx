@@ -44,7 +44,7 @@ export default function VoiceVisualizer({ isListening, isSpeaking, onStop, timeR
                 }
             `}
             style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(243,232,255,0.8) 100%)',
+                background: 'linear-gradient(135deg, rgba(250,248,244,0.92) 0%, rgba(245,240,232,0.88) 100%)',
             }}
             onClick={onStop}
         >

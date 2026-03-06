@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ChatBubble from '@/app/components/ChatBubble';
 import ChatInput from '@/app/components/ChatInput';
 import ChatHeader from '@/app/components/Header';
@@ -481,7 +481,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
       {
         challengeOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setChallengeOpen(false)}>
-            <div className="bg-white dark:bg-[#1e1e1e] rounded-3xl p-1 shadow-2xl max-w-sm w-full animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#faf7f2] dark:bg-[#1e1e1e] rounded-3xl p-1 shadow-2xl max-w-sm w-full animate-scale-in" onClick={e => e.stopPropagation()}>
               <div className="relative">
                 <DailyChallengeCard userId={userId} />
                 <button

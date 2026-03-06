@@ -70,9 +70,9 @@
   background: #7c3aed;
 }
 
-/* Smooth page background — light (frosted, airy like iOS) */
+/* Smooth page background — light (warm off-white, easy on eyes) */
 body {
-  background: linear-gradient(135deg, #faf5ff 0%, #f0e7ff 30%, #ede9fe 60%, #f5f3ff 100%);
+  background: linear-gradient(135deg, #faf8f4 0%, #f5f0e8 30%, #f0ebe0 60%, #f7f3ed 100%);
   min-height: 100vh;
   transition: background 0.6s ease;
 }
