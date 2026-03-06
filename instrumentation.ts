@@ -8,7 +8,6 @@
  *   growth-check       → every Sunday at 00:00
  *   proactive-care     → every 6 hours
  *   rain-alert         → every day at 08:00 AM
- *   schedule-reminders → every 15 minutes
  */
 export async function register() {
   // Only run in Node.js runtime (not Edge), and not during Next.js build
@@ -20,7 +19,7 @@ export async function register() {
   const { runGrowthCheck } = await import('@/app/lib/cron/runGrowthCheck');
   const { runProactiveCare } = await import('@/app/lib/cron/runProactiveCare');
   const { runRainAlert } = await import('@/app/lib/cron/runRainAlert');
-  const { runScheduleReminders } = await import('@/app/lib/cron/runScheduleReminders');
+
 
   // Daily insights — every day at 12:00 PM
   cron.schedule('0 12 * * *', async () => {
@@ -66,17 +65,5 @@ export async function register() {
     }
   });
 
-  // Schedule reminders — every 15 minutes
-  cron.schedule('*/15 * * * *', async () => {
-    try {
-      const r = await runScheduleReminders();
-      if (r.remindersCreated > 0) {
-        console.log(`[Cron] schedule-reminders — sent ${r.remindersCreated}`);
-      }
-    } catch (err) {
-      console.error('[Cron] schedule-reminders failed:', err);
-    }
-  });
-
-  console.log('[Cron] All jobs registered: daily-summary(12:00), growth-check(Sun 00:00), proactive-care(*/6h), rain-alert(08:00), schedule-reminders(*/15min)');
+  console.log('[Cron] All jobs registered: daily-summary(12:00), growth-check(Sun 00:00), proactive-care(*/6h), rain-alert(08:00)');
 }
