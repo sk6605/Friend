@@ -29,7 +29,8 @@
       "Bash(npx next lint)",
       "Bash(npx eslint app/components/ChatInput.tsx app/components/ChatPage.tsx app/components/NotificationToast.tsx app/components/Onboardingchat.tsx app/components/SideBar.tsx app/subscription/page.tsx)",
       "Bash(npx eslint app/components/SettingsModal.tsx)",
-      "Bash(npx eslint app/components/Onboardingchat.tsx)"
+      "Bash(npx eslint app/components/Onboardingchat.tsx)",
+      "WebFetch(domain:www.sweep.homes)"
     ]
   }
 }
