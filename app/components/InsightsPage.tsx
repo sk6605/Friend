@@ -43,7 +43,7 @@ export default function InsightsPage({ userId }: { userId: string }) {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <Link
-                href="/chat"
+                href="/"
                 className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
