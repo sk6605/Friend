@@ -41,14 +41,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { messages, persona } = await req.json();
+  const { messages, persona, language } = await req.json();
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json({ error: "Invalid messages." }, { status: 400 });
   }
 
+  const langRule =
+    language === "en"
+      ? "MANDATORY LANGUAGE RULE: You MUST reply exclusively in English. Do not use any other language, regardless of what language the user writes in."
+      : "MANDATORY LANGUAGE RULE: You MUST reply exclusively in Chinese (Simplified). Do not use any other language, regardless of what language the user writes in.";
+
   const personaOverlay = getPersonaPrompt(persona || "default");
-  const systemPrompt = [baseSystemPrompt, adultPrompt, personaOverlay]
+  const systemPrompt = [langRule, baseSystemPrompt, adultPrompt, personaOverlay]
     .filter(Boolean)
     .join("\n\n");
 

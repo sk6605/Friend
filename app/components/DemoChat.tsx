@@ -5,6 +5,8 @@ import { getAllPersonas, PersonaDefinition } from '@/app/lib/ai/personaPrompts';
 
 const MAX_USER_MESSAGES = 10;
 
+type Lang = 'zh' | 'en';
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -15,16 +17,116 @@ interface DemoChatProps {
   onSignUp: () => void;
 }
 
-// ─── Persona Selection Screen ─────────────────────────────────────────────────
-function PersonaSelect({
+// ─── i18n strings ─────────────────────────────────────────────────────────────
+const t = {
+  zh: {
+    langTitle: '选择语言',
+    langSub: 'AI 将用你选择的语言来回复你',
+    langZh: '中文',
+    langEn: 'English',
+    personaTitle: '选择你的 AI 朋友风格',
+    personaSub: '先试试，再决定要不要爱上 TA',
+    demoMode: '体验模式',
+    remaining: (n: number) => `剩余 ${n} 条`,
+    placeholder: '说点什么…',
+    limitTitle: '哎呀，我们聊得真开心呢 ✨',
+    limitBody: (
+      <>
+        你已经用完了体验次数，但我们的对话才刚刚开始！<br />
+        注册账号，解锁<span className="text-purple-500 font-medium">无限次对话</span>、记忆功能和更多专属体验 —— 毕竟，好朋友值得用心经营 🌟
+      </>
+    ),
+    limitCta: '马上注册，继续聊 🚀',
+    limitSkip: '也许下次吧',
+    errorMsg: '哎呀，好像出了点小问题 😅 再试一次？',
+    greetings: {
+      default: '嘿！我是你的 AI 朋友 😊 有什么想聊的？',
+      gentle: '嗨～ 我在这里陪着你呢 🌸 有什么想说的，慢慢来。',
+      witty: '哟！你来了 😏 准备好被我逗乐了吗？说说你想聊啥 🔥',
+      mentor: '欢迎！💡 有什么问题或目标想一起探讨？',
+      chill: '嘿 😎 随便聊，不用客气。',
+    },
+    personaNames: {
+      default: '平衡好友',
+      gentle: '温柔伴侣',
+      witty: '段子手',
+      mentor: '智慧导师',
+      chill: '佛系搭子',
+    },
+    personaDescs: {
+      default: '温暖、支持你，还带点自然幽默感——经典款 AI 朋友。',
+      gentle: '像贴心大姐姐——轻声细语，耐心满满，永远接住你。',
+      witty: '你最搞笑的朋友——反应快、爱整活，从不无聊。',
+      mentor: '用心的教练——问对问题，推动你成长。',
+      chill: '零压力、满满氛围感——像慵懒周日下午的聊天。',
+    },
+    personaQuotes: {
+      default: '"嘿！最近怎么样？都跟我说说 😄✨"',
+      gentle: '"慢慢来，我一直在这里陪着你 🌸💕 不用急。"',
+      witty: '"你居然来了 😂 好，坐下，让我好好教你什么叫快乐 🔥"',
+      mentor: '"有意思。那你觉得真正阻碍你的是什么？🤔💡"',
+      chill: '"哟 😎 随便，想聊啥都行。"',
+    },
+  },
+  en: {
+    langTitle: 'Choose Language',
+    langSub: 'Your AI friend will reply in the language you pick',
+    langZh: '中文',
+    langEn: 'English',
+    personaTitle: 'Choose Your AI Style',
+    personaSub: 'Try before you decide to fall for it',
+    demoMode: 'Demo Mode',
+    remaining: (n: number) => `${n} left`,
+    placeholder: 'Say something…',
+    limitTitle: 'Wow, we were really vibing there ✨',
+    limitBody: (
+      <>
+        You&apos;ve used up your trial messages — but our conversation is just getting started!<br />
+        Sign up to unlock <span className="text-purple-500 font-medium">unlimited chats</span>, memory, and a whole lot more 🌟
+      </>
+    ),
+    limitCta: 'Sign up & keep chatting 🚀',
+    limitSkip: 'Maybe later',
+    errorMsg: 'Oops, something went wrong 😅 Try again?',
+    greetings: {
+      default: 'Hey! I\'m your AI friend 😊 What\'s on your mind?',
+      gentle: 'Hi~ I\'m right here with you 🌸 Take your time.',
+      witty: 'Heyyy, you made it 😏 Ready to have some fun? Tell me everything 🔥',
+      mentor: 'Welcome! 💡 What\'s on your mind — any goals or questions to explore?',
+      chill: 'Yo 😎 What\'s up, no pressure.',
+    },
+    personaNames: {
+      default: 'Balanced Friend',
+      gentle: 'Gentle Soul',
+      witty: 'Witty Buddy',
+      mentor: 'Wise Mentor',
+      chill: 'Chill Companion',
+    },
+    personaDescs: {
+      default: 'Warm, supportive, and naturally funny — the classic Friend AI.',
+      gentle: 'Like a caring big sister — soft-spoken, nurturing, always patient.',
+      witty: 'Your funniest friend — quick-witted, playful, never boring.',
+      mentor: 'A thoughtful coach — asks the right questions, pushes you to grow.',
+      chill: 'Zero pressure, maximum vibes — like chatting on a lazy Sunday.',
+    },
+    personaQuotes: {
+      default: '"Hey! How\'s your day going? Tell me everything 😄✨"',
+      gentle: '"Take your time, I\'m right here with you 🌸💕 No rush at all."',
+      witty: '"Oh you did NOT just say that 😂 Okay sit down, let me educate you 🔥"',
+      mentor: '"Interesting. What do you think is really holding you back here? 🤔💡"',
+      chill: '"Yo that\'s cool 😎 honestly no stress, everything works out ✌️"',
+    },
+  },
+} as const;
+
+// ─── Language Selection Screen ─────────────────────────────────────────────────
+function LanguageSelect({
   onSelect,
   onClose,
 }: {
-  onSelect: (persona: PersonaDefinition) => void;
+  onSelect: (lang: Lang) => void;
   onClose: () => void;
 }) {
-  const personas = getAllPersonas();
-
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -37,11 +139,111 @@ function PersonaSelect({
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
+        <div className="w-8" />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8 pb-12 gap-8">
+        {/* Globe icon */}
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40 flex items-center justify-center">
+          <span className="text-3xl">🌐</span>
+        </div>
+
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-100">
+            选择语言 / Choose Language
+          </h2>
+          <p className="text-sm text-neutral-400 mt-2">
+            AI 将用你选择的语言来回复你<br />
+            <span className="text-xs">AI will reply in the language you pick</span>
+          </p>
+        </div>
+
+        {/* Language buttons */}
+        <div className="w-full space-y-3">
+          <button
+            onClick={() => onSelect('zh')}
+            className="
+              w-full py-5 rounded-2xl
+              bg-white dark:bg-white/5
+              border-2 border-neutral-100 dark:border-white/10
+              hover:border-purple-300 dark:hover:border-purple-500/50
+              hover:bg-purple-50/50 dark:hover:bg-purple-900/20
+              active:scale-[0.98]
+              transition-all duration-200
+              group
+            "
+          >
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-2xl">🇨🇳</span>
+              <div className="text-left">
+                <p className="text-base font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                  中文
+                </p>
+                <p className="text-xs text-neutral-400">Chinese</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onSelect('en')}
+            className="
+              w-full py-5 rounded-2xl
+              bg-white dark:bg-white/5
+              border-2 border-neutral-100 dark:border-white/10
+              hover:border-purple-300 dark:hover:border-purple-500/50
+              hover:bg-purple-50/50 dark:hover:bg-purple-900/20
+              active:scale-[0.98]
+              transition-all duration-200
+              group
+            "
+          >
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-2xl">🇬🇧</span>
+              <div className="text-left">
+                <p className="text-base font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                  English
+                </p>
+                <p className="text-xs text-neutral-400">英文</p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Persona Selection Screen ─────────────────────────────────────────────────
+function PersonaSelect({
+  lang,
+  onSelect,
+  onBack,
+}: {
+  lang: Lang;
+  onSelect: (persona: PersonaDefinition) => void;
+  onBack: () => void;
+}) {
+  const personas = getAllPersonas();
+  const strings = t[lang];
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 pt-6 pb-4">
+        <button
+          onClick={onBack}
+          className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-white/10 transition-all"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
         <div className="flex-1 text-center px-4">
           <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
-            选择你的 AI 朋友风格
+            {strings.personaTitle}
           </h2>
-          <p className="text-xs text-neutral-400 mt-0.5">先试试，再决定要不要爱上 TA</p>
+          <p className="text-xs text-neutral-400 mt-0.5">{strings.personaSub}</p>
         </div>
         <div className="w-8" />
       </div>
@@ -68,7 +270,7 @@ function PersonaSelect({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100">
-                    {p.name}
+                    {strings.personaNames[p.key as keyof typeof strings.personaNames] ?? p.name}
                   </span>
                   <span className="text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -77,10 +279,10 @@ function PersonaSelect({
                   </span>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  {p.description}
+                  {strings.personaDescs[p.key as keyof typeof strings.personaDescs] ?? p.description}
                 </p>
                 <p className="text-xs text-purple-500 dark:text-purple-400 mt-2 italic">
-                  {p.previewQuote}
+                  {strings.personaQuotes[p.key as keyof typeof strings.personaQuotes] ?? p.previewQuote}
                 </p>
               </div>
             </div>
@@ -92,7 +294,17 @@ function PersonaSelect({
 }
 
 // ─── Limit Reached Modal ──────────────────────────────────────────────────────
-function LimitModal({ onSignUp, onClose }: { onSignUp: () => void; onClose: () => void }) {
+function LimitModal({
+  lang,
+  onSignUp,
+  onClose,
+}: {
+  lang: Lang;
+  onSignUp: () => void;
+  onClose: () => void;
+}) {
+  const strings = t[lang];
+
   return (
     <div className="absolute inset-0 z-20 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm rounded-[inherit]">
       <div className="
@@ -102,27 +314,21 @@ function LimitModal({ onSignUp, onClose }: { onSignUp: () => void; onClose: () =
         border border-neutral-200/80 dark:border-purple-800/30
         shadow-[0_32px_80px_rgba(0,0,0,0.2)]
         overflow-hidden
-        animate-[slideUp_0.3s_ease-out]
       ">
-        {/* Gradient top bar */}
         <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-pink-500" />
 
         <div className="p-7">
-          {/* Icon */}
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40 flex items-center justify-center">
             <span className="text-2xl">💜</span>
           </div>
 
-          {/* Copy */}
           <h3 className="text-center text-lg font-bold text-neutral-800 dark:text-neutral-100 leading-snug">
-            哎呀，我们聊得真开心呢 ✨
+            {strings.limitTitle}
           </h3>
           <p className="text-center text-sm text-neutral-500 dark:text-neutral-400 mt-3 leading-relaxed">
-            你已经用完了体验次数，但我们的对话才刚刚开始！<br />
-            注册账号，解锁<span className="text-purple-500 font-medium">无限次对话</span>、记忆功能和更多专属体验 —— 毕竟，好朋友值得用心经营 🌟
+            {strings.limitBody}
           </p>
 
-          {/* CTA */}
           <button
             onClick={onSignUp}
             className="
@@ -135,14 +341,14 @@ function LimitModal({ onSignUp, onClose }: { onSignUp: () => void; onClose: () =
               transition-all duration-200
             "
           >
-            马上注册，继续聊 🚀
+            {strings.limitCta}
           </button>
 
           <button
             onClick={onClose}
             className="mt-3 w-full py-2.5 rounded-2xl text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
           >
-            也许下次吧
+            {strings.limitSkip}
           </button>
         </div>
       </div>
@@ -152,34 +358,29 @@ function LimitModal({ onSignUp, onClose }: { onSignUp: () => void; onClose: () =
 
 // ─── Chat Screen ──────────────────────────────────────────────────────────────
 function ChatScreen({
+  lang,
   persona,
-  onClose,
-  onLimitReached,
+  onBack,
+  onSignUp,
 }: {
+  lang: Lang;
   persona: PersonaDefinition;
-  onClose: () => void;
-  onLimitReached: () => void;
+  onBack: () => void;
+  onSignUp: () => void;
 }) {
+  const strings = t[lang];
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [userMsgCount, setUserMsgCount] = useState(0);
   const [showLimit, setShowLimit] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [greeting, setGreeting] = useState('');
 
-  // Greeting on mount
-  useEffect(() => {
-    const greetings: Record<string, string> = {
-      default: `嘿！我是你的 AI 朋友 😊 有什么想聊的？`,
-      gentle: `嗨～ 我在这里陪着你呢 🌸 有什么想说的，慢慢来。`,
-      witty: `哟！你来了 😏 准备好被我逗乐了吗？说说你想聊啥 🔥`,
-      mentor: `欢迎！💡 有什么问题或目标想一起探讨？`,
-      chill: `嘿 😎 随便聊，不用客气。`,
-    };
-    setGreeting(greetings[persona.key] || greetings.default);
-  }, [persona.key]);
+  const greeting = strings.greetings[persona.key as keyof typeof strings.greetings]
+    ?? strings.greetings.default;
+
+  const personaDisplayName = strings.personaNames[persona.key as keyof typeof strings.personaNames]
+    ?? persona.name;
 
   // Auto scroll
   useEffect(() => {
@@ -192,7 +393,6 @@ function ChatScreen({
 
     if (userMsgCount >= MAX_USER_MESSAGES) {
       setShowLimit(true);
-      onLimitReached();
       return;
     }
 
@@ -207,7 +407,7 @@ function ChatScreen({
     setMessages(newMessages);
     setIsStreaming(true);
 
-    // Placeholder for streaming
+    // Streaming placeholder
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
     try {
@@ -217,6 +417,7 @@ function ChatScreen({
         body: JSON.stringify({
           messages: newMessages,
           persona: persona.key,
+          language: lang,
         }),
       });
 
@@ -237,19 +438,15 @@ function ChatScreen({
         });
       }
 
-      // After limit is hit, show modal
       if (newCount >= MAX_USER_MESSAGES) {
-        setTimeout(() => {
-          setShowLimit(true);
-          onLimitReached();
-        }, 800);
+        setTimeout(() => setShowLimit(true), 800);
       }
     } catch {
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: 'assistant',
-          content: '哎呀，好像出了点小问题 😅 再试一次？',
+          content: strings.errorMsg,
         };
         return updated;
       });
@@ -272,31 +469,30 @@ function ChatScreen({
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-neutral-100 dark:border-white/5">
         <button
-          onClick={onClose}
+          onClick={onBack}
           className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-white/10 transition-all"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6L6 18M6 6l12 12" />
+            <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
         <div className="flex items-center gap-2 flex-1">
           <span className="text-xl">{persona.emoji}</span>
           <div>
             <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 leading-none">
-              {persona.name}
+              {personaDisplayName}
             </p>
-            <p className="text-xs text-neutral-400 mt-0.5">体验模式</p>
+            <p className="text-xs text-neutral-400 mt-0.5">{strings.demoMode}</p>
           </div>
         </div>
         {/* Message counter */}
         <div className={`
-          px-2.5 py-1 rounded-full text-xs font-medium
+          px-2.5 py-1 rounded-full text-xs font-medium transition-colors
           ${remaining <= 3
             ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-500'
             : 'bg-neutral-100 dark:bg-white/10 text-neutral-400'}
-          transition-colors
         `}>
-          剩余 {remaining} 条
+          {strings.remaining(remaining)}
         </div>
       </div>
 
@@ -343,11 +539,10 @@ function ChatScreen({
       <div className="px-4 pb-4 pt-2 border-t border-neutral-100 dark:border-white/5">
         <div className="flex gap-2 items-end">
           <textarea
-            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="说点什么..."
+            placeholder={strings.placeholder}
             rows={1}
             disabled={isStreaming || userMsgCount >= MAX_USER_MESSAGES}
             className="
@@ -380,12 +575,13 @@ function ChatScreen({
         </div>
       </div>
 
-      {/* Limit Modal overlay */}
+      {/* Limit Modal */}
       {showLimit && (
         <LimitModal
+          lang={lang}
           onSignUp={() => {
             setShowLimit(false);
-            onLimitReached();
+            onSignUp();
           }}
           onClose={() => setShowLimit(false)}
         />
@@ -395,13 +591,12 @@ function ChatScreen({
 }
 
 // ─── Main DemoChat Component ──────────────────────────────────────────────────
-export default function DemoChat({ onClose, onSignUp }: DemoChatProps) {
-  const [selectedPersona, setSelectedPersona] = useState<PersonaDefinition | null>(null);
-  const [limitReached, setLimitReached] = useState(false);
+type Step = 'language' | 'persona' | 'chat';
 
-  const handleLimitReached = () => {
-    setLimitReached(true);
-  };
+export default function DemoChat({ onClose, onSignUp }: DemoChatProps) {
+  const [step, setStep] = useState<Step>('language');
+  const [lang, setLang] = useState<Lang>('zh');
+  const [selectedPersona, setSelectedPersona] = useState<PersonaDefinition | null>(null);
 
   return (
     <div
@@ -422,19 +617,33 @@ export default function DemoChat({ onClose, onSignUp }: DemoChatProps) {
           relative
         "
       >
-        {!selectedPersona ? (
-          <PersonaSelect
-            onSelect={setSelectedPersona}
+        {step === 'language' && (
+          <LanguageSelect
+            onSelect={(l) => {
+              setLang(l);
+              setStep('persona');
+            }}
             onClose={onClose}
           />
-        ) : (
-          <ChatScreen
-            persona={selectedPersona}
-            onClose={() => setSelectedPersona(null)}
-            onLimitReached={() => {
-              handleLimitReached();
-              // Callback to parent to nudge sign up
+        )}
+
+        {step === 'persona' && (
+          <PersonaSelect
+            lang={lang}
+            onSelect={(p) => {
+              setSelectedPersona(p);
+              setStep('chat');
             }}
+            onBack={() => setStep('language')}
+          />
+        )}
+
+        {step === 'chat' && selectedPersona && (
+          <ChatScreen
+            lang={lang}
+            persona={selectedPersona}
+            onBack={() => setStep('persona')}
+            onSignUp={onSignUp}
           />
         )}
       </div>

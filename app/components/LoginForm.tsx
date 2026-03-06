@@ -125,7 +125,7 @@ export default function LoginForm({ onOtpSent, onRegister, onTry }: LoginFormPro
               "
             >
               <span>✨</span>
-              先体验一下，再决定
+              Try it out first, then decide.
             </button>
           </div>
         )}
