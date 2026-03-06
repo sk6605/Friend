@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/app/lib/db';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAI() {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error('OPENAI_API_KEY not set');
+    return new OpenAI({ apiKey });
+}
 
 const FALLBACK_CHALLENGES = [
     { text: "Take a 5-minute walk without your phone.", type: "physical", difficulty: "easy" },
@@ -64,7 +68,7 @@ Rules:
 Respond in this exact JSON format (no markdown, no code fences):
 {"text": "the challenge description", "type": "mindfulness|physical|social|gratitude|creative|learning", "difficulty": "easy|medium|hard"}`;
 
-        const response = await openai.chat.completions.create({
+        const response = await getOpenAI().chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.8,
