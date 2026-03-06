@@ -1,0 +1,333 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+
+  username  String
+  nickname  String
+  email     String   @unique
+  password  String   @default("")
+
+  age       Int?     // nullable — user can skip during registration
+  ageGroup  String   @default("adult") // child | teen | adult
+  language  String   @default("en") // preferred language code
+  aiName    String   @default("Friend AI") // custom name for the AI
+  persona   String   @default("default") // default | gentle | witty | mentor | chill
+  profilePicture String?  @db.Text // URL path to user's avatar image
+  profile   String?  @db.Text // JSON string with AI-gathered preferences
+  memory    String?  @db.Text // Long-term AI memory: user preferences, speaking style, key facts
+  pushSubscription String? @db.Text // JSON string for Web Push Subscription
+
+
+  // Gamification
+  streak       Int       @default(0)    // Current daily streak
+  lastActiveAt DateTime?                // Last time user sent a message (for streak calc)
+
+
+  country       String?  // User's country for location display
+  city          String?  // User's city/region for weather lookups
+  departureTime String?  // e.g. "07:30" — when user leaves for work/school
+
+  lastLoginAt DateTime? // Tracks user's most recent login time
+  lastProactiveCareAt DateTime? // When last proactive check-in was sent
+
+  // Data control & crisis safety
+  dataControl Boolean  @default(true)  // Allow conversations to be used for AI improvement
+  safeMode    Boolean  @default(false) // Whether user is in SAFE_MODE
+  safeModeAt  DateTime?               // When SAFE_MODE was activated
+
+  // Account restriction (for extreme speech violations)
+  restricted     Boolean   @default(false)  // Whether account is restricted
+  restrictedAt   DateTime?                  // When restriction was applied
+  restrictedUntil DateTime?                 // null = permanent, otherwise temporary ban end
+  restrictionReason String?        // Why the account was restricted
+  violationCount Int       @default(0)      // Cumulative extreme speech violation count
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversations Conversation[]
+  dailyInsights DailyInsight[]
+  subscription  Subscription?
+  scheduleItems ScheduleItem[]
+  notifications Notification[]
+  crisisEvents  CrisisEvent[]
+  growthReports GrowthReport[]
+  challenges    UserChallenge[]
+}
+
+// ─── Gamification System ────────────────────────────────────────
+
+model DailyChallenge {
+  id          String   @id @default(cuid())
+  text        String   // "Take a 5 minute walk", "Write down 3 things you're grateful for"
+  type        String   // "mindfulness" | "physical" | "social" | "gratitude"
+  difficulty  String   @default("easy") // easy | medium | hard
+  
+  completions UserChallenge[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserChallenge {
+  id          String   @id @default(cuid())
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  challengeId String
+  challenge   DailyChallenge @relation(fields: [challengeId], references: [id])
+  
+  completedAt DateTime @default(now())
+  
+  @@index([userId, completedAt])
+  @@index([challengeId])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  title     String
+
+  summary       String?  @db.Text 
+  summaryCount  Int      @default(0)
+  messageCount  Int      @default(0)
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  messages  Message[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role           String
+  content        String   @db.LongText  
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model DailyInsight {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @default(now())
+
+  mood           String?  // e.g. "happy", "anxious", "neutral"
+  moodScore      Int?     // 1-10 scale
+  topics         String?  @db.Text // JSON array: ["school", "gaming", "relationships"]
+  emotionalState String?  @db.Text // brief description
+  summary        String?  @db.Text // daily summary text
+  messageCount   Int      @default(0)
+
+  // Layer 2: Structured emotional recording
+  triggerEvent       String?   @db.Text // What caused the emotion (e.g. "argument with boss")
+  thinkingPattern    String?   @db.Text // Cognitive pattern (e.g. "catastrophizing", "all-or-nothing")
+  behavioralResponse String?   @db.Text // How user responded (e.g. "withdrawal", "venting")
+  emotionIntensity   Int?               // 1-10 intensity rating
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+  @@index([date])
+}
+
+model Otp {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, used])
+}
+
+// ─── Schedule & Notification System ─────────────────────────────
+
+model ScheduleItem {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  subject   String            // "Team meeting", "Doctor appointment"
+  date      DateTime          // The date+time of the event
+  endTime   DateTime?         // Optional end time
+  type      String   @default("event")   // event | task | meeting | reminder
+  source    String   @default("ai")      // ai | manual
+
+  conversationId String?      // Which conversation it was extracted from
+
+  notifyAt  DateTime?         // When to send the reminder (10 min before by default)
+  notified  Boolean  @default(false) // Has the reminder been sent?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, date])
+  @@index([notifyAt, notified])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  type      String            // rain_alert | schedule_reminder
+  title     String
+  message   String   @db.Text
+  data      String?  @db.Text // JSON: extra data (scheduleItemId, weather details, etc.)
+
+  read      Boolean  @default(false)
+  dismissed Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read, dismissed])
+  @@index([createdAt])
+}
+
+// ─── Crisis Safety System ──────────────────────────────────────
+
+model CrisisEvent {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  conversationId       String?
+  messageId            String?
+  riskLevel            Int              // 0-3
+  triggerContent       String   @db.Text // The user message that triggered detection
+  classificationReason String?  @db.Text // AI explanation of why it was flagged
+  keywords             String?  @db.Text // JSON array of matched keywords
+
+  status     String    @default("open") // open | acknowledged | resolved | escalated
+  resolvedBy String?                    // Admin identifier who resolved
+  resolvedAt DateTime?
+  notes      String?          // Admin notes
+
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, status])
+  @@index([riskLevel, status])
+  @@index([createdAt])
+}
+
+model SafeModeLog {
+  id        String   @id @default(cuid())
+
+  userId        String
+  crisisEventId String?
+
+  action      String              // "activated" | "deactivated"
+  reason      String? 
+  performedBy String   @default("system") // "system" | admin identifier
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ─── Growth & Insights System ──────────────────────────────────
+
+model GrowthReport {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  period    String              // "weekly" | "monthly"
+  startDate DateTime
+  endDate   DateTime
+
+  avgMoodScore    Float?
+  moodTrend       String?       // "improving" | "stable" | "declining"
+  topTriggers     String?   @db.Text // JSON array
+  topPatterns     String?   @db.Text // JSON array
+  riskAssessment  String?   @db.Text
+  recommendations String?   @db.Text // JSON array of growth suggestions
+  summary         String?   @db.Text 
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, period])
+  @@index([startDate])
+}
+
+// ─── Subscription System ────────────────────────────────────────
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String   @unique // free | pro | premium
+  displayName String            // "Free", "Pro", "Premium"
+  price       Float    @default(0) // monthly price in USD
+  yearlyPrice Float    @default(0) // yearly price in USD (discounted)
+  currency    String   @default("USD")
+
+  // Feature limits
+  dailyMessageLimit  Int     @default(20)   // max messages per day (-1 = unlimited)
+  maxFileUploads     Int     @default(2)    // max file uploads per message
+  maxFileSizeMB      Int     @default(10)   // max file size in MB
+  memoryEnabled      Boolean @default(false) // AI long-term memory
+  priorityResponse   Boolean @default(false) // faster AI response
+  customAiPersonality Boolean @default(false) // deep personality customization
+  advancedAnalytics  Boolean @default(false) // user mood/insight analytics
+
+  description String? @db.Text // short description of the plan
+  features    String? @db.Text // JSON array of feature strings for display
+
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id])
+
+  status    String   @default("active") // active | cancelled | expired | past_due
+  interval  String   @default("monthly") // monthly | yearly
+
+  // Billing
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime
+  cancelledAt        DateTime?
+
+  // Payment reference (for future Stripe/payment integration)
+  paymentProvider    String?  // stripe | paypal | null (free)
+  externalId         String?  // Stripe subscription ID, etc.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}

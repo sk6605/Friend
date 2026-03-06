@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next --version)",
+      "Bash(dir:*)",
+      "Bash(npx next dev)",
+      "Bash(curl:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(del /F \"c:\\\\Users\\\\szek6\\\\Documents\\\\Project\\\\friend-ai\\\\app\\\\generated\\\\prisma\\\\query_engine-windows.dll.node\")",
+      "Bash(npx tsc:*)",
+      "Bash(npx next build)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd /c \"tasklist /fi \"\"imagename eq node.exe\"\" /fo csv /nh\")",
+      "Bash(cmd /c \"handle query_engine-windows.dll.node 2>nul || echo No handle.exe available\")",
+      "Bash(cmd /c \"icacls c:\\\\Users\\\\szek6\\\\Documents\\\\Project\\\\friend-ai\\\\app\\\\generated\\\\prisma\\\\query_engine-windows.dll.node\")",
+      "Bash(cmd /c \"dir c:\\\\Users\\\\szek6\\\\Documents\\\\Project\\\\friend-ai\\\\app\\\\generated\\\\prisma\\\\query_engine-windows.dll.node\")",
+      "Bash(npm run build:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(mysql:*)",
+      "Bash(\"/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe\" -u root -e \"CREATE DATABASE IF NOT EXISTS friend_ai;\")",
+      "Bash(\"/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe\":*)",
+      "Bash(\"/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe\" -u root -p1234)",
+      "Bash(npx next lint)",
+      "Bash(npx eslint app/components/ChatInput.tsx app/components/ChatPage.tsx app/components/NotificationToast.tsx app/components/Onboardingchat.tsx app/components/SideBar.tsx app/subscription/page.tsx)",
+      "Bash(npx eslint app/components/SettingsModal.tsx)",
+      "Bash(npx eslint app/components/Onboardingchat.tsx)"
+    ]
+  }
+}
