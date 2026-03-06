@@ -54,12 +54,13 @@ export async function register() {
     }
   });
 
-  // Rain alert — every day at 08:00 AM
-  cron.schedule('0 8 * * *', async () => {
-    console.log('[Cron] Running rain-alert...');
+  // Rain alert — every 15 minutes (per-user timing: 30 min before departure, default 07:30)
+  cron.schedule('*/15 * * * *', async () => {
     try {
       const r = await runRainAlert();
-      console.log(`[Cron] rain-alert done — ${r.alertsSent} alerts / ${r.usersChecked} users`);
+      if (r.alertsSent > 0) {
+        console.log(`[Cron] rain-alert — ${r.alertsSent} alerts / ${r.usersChecked} users`);
+      }
     } catch (err) {
       console.error('[Cron] rain-alert failed:', err);
     }
