@@ -5,9 +5,10 @@ import { useState } from 'react';
 interface LoginFormProps {
   onOtpSent: (email: string, devOtp?: string) => void;
   onRegister?: () => void;
+  onTry?: () => void;
 }
 
-export default function LoginForm({ onOtpSent, onRegister }: LoginFormProps) {
+export default function LoginForm({ onOtpSent, onRegister, onTry }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -102,10 +103,38 @@ export default function LoginForm({ onOtpSent, onRegister }: LoginFormProps) {
           </button>
         </form>
 
+        {onTry && (
+          <div className="mt-5">
+            <div className="relative flex items-center gap-3 mb-5">
+              <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+              <span className="text-xs text-neutral-400 whitespace-nowrap">或者</span>
+              <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+            </div>
+            <button
+              type="button"
+              onClick={onTry}
+              className="
+                w-full py-3.5 rounded-2xl text-sm font-semibold
+                border-2 border-purple-200 dark:border-purple-700/50
+                text-purple-600 dark:text-purple-400
+                hover:bg-purple-50 dark:hover:bg-purple-900/20
+                hover:border-purple-400 dark:hover:border-purple-500
+                active:scale-[0.98]
+                transition-all duration-200
+                flex items-center justify-center gap-2
+              "
+            >
+              <span>✨</span>
+              先体验一下，再决定
+            </button>
+          </div>
+        )}
+
         {onRegister && (
           <div className="mt-6 text-center">
             <span className="text-sm text-neutral-400">Don&apos;t have an account? </span>
             <button
+              type="button"
               onClick={onRegister}
               className="text-sm text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium transition-colors"
             >
