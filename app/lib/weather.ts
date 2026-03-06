@@ -28,27 +28,67 @@ export function isWeatherQuery(text: string): boolean {
 /**
  * Try to extract a city name from the user's message.
  * Falls back to null if no city is found.
+ * 
+ * IMPORTANT: Only extracts when users explicitly mention a location.
+ * Does NOT try to parse generic weather questions like "今天天气怎么样"
+ * because those should fall back to the user's saved city.
  */
 export function extractCity(text: string): string | null {
-  // Common patterns: "weather in Tokyo", "天气 北京", "clima en Madrid"
-  const patterns = [
-    /weather\s+(?:in|at|for|of)\s+([a-zA-Z\s]+)/i,
-    /forecast\s+(?:in|at|for|of)\s+([a-zA-Z\s]+)/i,
-    /temperature\s+(?:in|at|for|of)\s+([a-zA-Z\s]+)/i,
-    /clima\s+(?:en|de)\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+)/i,
-    /天气.{0,2}([\u4e00-\u9fff]{2,})/,
-    /気温.{0,2}([\u4e00-\u9fff]{2,})/,
-    /天気.{0,2}([\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]{2,})/,
-    /날씨.{0,2}([\uac00-\ud7af]{2,})/,
-    /cuaca\s+(?:di|untuk)\s+([a-zA-Z\s]+)/i,
-  ];
+  // ─── Known city names (direct match) ───
+  const KNOWN_CITIES_CN: Record<string, string> = {
+    '北京': 'Beijing', '上海': 'Shanghai', '广州': 'Guangzhou', '深圳': 'Shenzhen',
+    '成都': 'Chengdu', '杭州': 'Hangzhou', '武汉': 'Wuhan', '西安': "Xi'an",
+    '南京': 'Nanjing', '重庆': 'Chongqing', '天津': 'Tianjin', '苏州': 'Suzhou',
+    '长沙': 'Changsha', '厦门': 'Xiamen', '青岛': 'Qingdao', '大连': 'Dalian',
+    '昆明': 'Kunming', '福州': 'Fuzhou', '郑州': 'Zhengzhou', '济南': 'Jinan',
+    '沈阳': 'Shenyang', '哈尔滨': 'Harbin', '长春': 'Changchun', '合肥': 'Hefei',
+    '东京': 'Tokyo', '大阪': 'Osaka', '首尔': 'Seoul', '台北': 'Taipei',
+    '香港': 'Hong Kong', '澳门': 'Macau', '新加坡': 'Singapore',
+    '吉隆坡': 'Kuala Lumpur', '曼谷': 'Bangkok', '雅加达': 'Jakarta',
+    '纽约': 'New York', '伦敦': 'London', '巴黎': 'Paris', '东莞': 'Dongguan',
+    '佛山': 'Foshan', '珠海': 'Zhuhai', '中山': 'Zhongshan', '惠州': 'Huizhou',
+    '无锡': 'Wuxi', '宁波': 'Ningbo', '温州': 'Wenzhou',
+  };
 
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      return match[1].trim();
+  // Check if any known Chinese city name appears in the text
+  for (const [cn, en] of Object.entries(KNOWN_CITIES_CN)) {
+    if (text.includes(cn)) {
+      return en;
     }
   }
+
+  // ─── English patterns: "weather in Tokyo", "forecast for London" ───
+  const enPatterns = [
+    /weather\s+(?:in|at|for|of)\s+([a-zA-Z][a-zA-Z\s]{1,30})/i,
+    /forecast\s+(?:in|at|for|of)\s+([a-zA-Z][a-zA-Z\s]{1,30})/i,
+    /temperature\s+(?:in|at|for|of)\s+([a-zA-Z][a-zA-Z\s]{1,30})/i,
+    /(?:how(?:'s| is) the weather in|what(?:'s| is) the weather (?:like )?in)\s+([a-zA-Z][a-zA-Z\s]{1,30})/i,
+  ];
+
+  // Words that should NOT be treated as cities
+  const notCities = new Set([
+    'today', 'tomorrow', 'now', 'tonight', 'this', 'the', 'my', 'our', 'your',
+    'here', 'there', 'outside', 'morning', 'afternoon', 'evening', 'week',
+  ]);
+
+  for (const pattern of enPatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const candidate = match[1].trim().replace(/[?.!,]+$/, '').trim();
+      const firstWord = candidate.split(/\s+/)[0].toLowerCase();
+      if (!notCities.has(firstWord) && candidate.length >= 2) {
+        return candidate;
+      }
+    }
+  }
+
+  // ─── Spanish: "clima en Madrid" ───
+  const esMatch = text.match(/clima\s+(?:en|de)\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]{2,25})/i);
+  if (esMatch?.[1]) return esMatch[1].trim();
+
+  // ─── Malay: "cuaca di Kuala Lumpur" ───
+  const msMatch = text.match(/cuaca\s+(?:di|untuk)\s+([a-zA-Z\s]{2,25})/i);
+  if (msMatch?.[1]) return msMatch[1].trim();
 
   return null;
 }

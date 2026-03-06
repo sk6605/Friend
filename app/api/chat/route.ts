@@ -526,19 +526,24 @@ Ask the user which city they'd like weather for, and mention you can remember it
 
 
 
-              // Save city from weather query if user mentioned one
+              // Save city from weather query only if user explicitly mentioned a specific city
+              // and the weather API successfully validated it
               if (userId && isWeatherQuery(userText)) {
                 const cityMentioned = extractCity(userText);
                 if (cityMentioned) {
-                  const currentUser = await prisma.user.findUnique({
-                    where: { id: userId },
-                    select: { city: true },
-                  });
-                  if (!currentUser?.city || currentUser.city !== cityMentioned) {
-                    await prisma.user.update({
+                  // Validate with weather API before saving
+                  const validWeather = await fetchWeather(cityMentioned);
+                  if (validWeather) {
+                    const currentUser = await prisma.user.findUnique({
                       where: { id: userId },
-                      data: { city: cityMentioned },
+                      select: { city: true },
                     });
+                    if (!currentUser?.city || currentUser.city !== validWeather.city) {
+                      await prisma.user.update({
+                        where: { id: userId },
+                        data: { city: validWeather.city },
+                      });
+                    }
                   }
                 }
               }
