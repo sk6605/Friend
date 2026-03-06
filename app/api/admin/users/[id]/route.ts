@@ -107,7 +107,6 @@ export async function GET(
       username: user.username,
       nickname: user.nickname,
       email: user.email,
-      passwordHash: user.password,
       age: user.age,
       profilePicture: user.profilePicture,
       ageGroup: user.ageGroup,

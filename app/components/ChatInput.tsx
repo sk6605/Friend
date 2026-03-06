@@ -174,6 +174,7 @@ export default function ChatInput({ onSendMessage, isLoading = false, showUpload
         <button
           onClick={handleSend}
           disabled={isLoading || (!text.trim() && uploadedFiles.length === 0)}
+          aria-label="Send message"
           className={`
             w-10 h-10
             rounded-full

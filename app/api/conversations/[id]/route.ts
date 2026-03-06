@@ -31,14 +31,16 @@ export async function GET(
     const { id } = await params;
     const userId = request.nextUrl.searchParams.get('userId');
 
-    if (userId) {
-      const check = await verifyOwnership(id, userId);
-      if (check === 'not_found') {
-        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
-      }
-      if (check === 'forbidden') {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-      }
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+
+    const check = await verifyOwnership(id, userId);
+    if (check === 'not_found') {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+    if (check === 'forbidden') {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     const conversation = await prisma.conversation.findUnique({

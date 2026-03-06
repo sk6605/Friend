@@ -33,8 +33,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate 6-digit OTP
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate 6-digit OTP (cryptographically secure)
+    const { randomInt } = await import('crypto');
+    const code = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     // Invalidate old OTPs for this email

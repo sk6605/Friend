@@ -13,6 +13,7 @@ interface OtpVerifyProps {
 export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVerifyProps) {
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
+  const [resendSuccess, setResendSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -105,6 +106,8 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
       });
       setResendCooldown(60);
       setError('');
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 3000);
     } catch {
       setError('Failed to resend code');
     }
@@ -180,6 +183,12 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
         {error && (
           <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-xl mb-4">
             {error}
+          </div>
+        )}
+
+        {resendSuccess && !error && (
+          <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-4 py-2 rounded-xl mb-4">
+            Code resent! Check your inbox.
           </div>
         )}
 
