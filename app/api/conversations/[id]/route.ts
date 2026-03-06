@@ -35,14 +35,7 @@ export async function GET(
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
 
-    const check = await verifyOwnership(id, userId);
-    if (check === 'not_found') {
-      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
-    }
-    if (check === 'forbidden') {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
+    // Single query: fetch conversation + messages + verify ownership in one round-trip
     const conversation = await prisma.conversation.findUnique({
       where: { id },
       include: {
@@ -54,6 +47,9 @@ export async function GET(
 
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+    if (conversation.userId !== userId) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     return NextResponse.json(conversation);

@@ -7,7 +7,7 @@ interface ThemeContextType {
   toggle: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ isDark: false, toggle: () => {} });
+const ThemeContext = createContext<ThemeContextType>({ isDark: false, toggle: () => { } });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState(false);
@@ -21,6 +21,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggle = useCallback(() => {
+    // Add transitioning class for smooth animation
+    document.documentElement.classList.add('theme-transitioning');
+
     setIsDark(prev => {
       const next = !prev;
       localStorage.setItem('theme', next ? 'dark' : 'light');
@@ -31,6 +34,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
+
+    // Remove transitioning class after animation completes
+    setTimeout(() => {
+      document.documentElement.classList.remove('theme-transitioning');
+    }, 600);
   }, []);
 
   return (

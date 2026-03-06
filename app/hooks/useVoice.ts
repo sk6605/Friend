@@ -44,15 +44,30 @@ declare global {
     }
 }
 
+const IDLE_TIMEOUT_MS = 3000;   // Auto-close after 3s of no speech
+const MAX_DURATION_MS = 15000;  // Hard limit: 15s max
+
 export function useVoice() {
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [transcript, setTranscript] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
     const recognitionRef = useRef<SpeechRecognition | null>(null);
     const synthesisRef = useRef<SpeechSynthesis | null>(null);
-    const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const startTimeRef = useRef<number>(0);
+
+    // Clear all timers
+    const clearAllTimers = useCallback(() => {
+        if (idleTimerRef.current) { clearTimeout(idleTimerRef.current); idleTimerRef.current = null; }
+        if (maxTimerRef.current) { clearTimeout(maxTimerRef.current); maxTimerRef.current = null; }
+        if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+        setTimeRemaining(null);
+    }, []);
 
     // Initialize Speech APIs
     useEffect(() => {
@@ -61,11 +76,10 @@ export function useVoice() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (SpeechRecognition) {
                 const recognition = new SpeechRecognition();
-                recognition.continuous = true; // Keep listening until stopped
+                recognition.continuous = true;
                 recognition.interimResults = true;
-                recognition.lang = 'en-US'; // Default, can be made dynamic
+                recognition.lang = 'en-US';
 
-                // Set up event handlers during init — avoids race condition with start()
                 recognition.onresult = (event: SpeechRecognitionEvent) => {
                     let finalTranscript = '';
                     let interimTranscript = '';
@@ -81,26 +95,34 @@ export function useVoice() {
                     const currentText = finalTranscript || interimTranscript;
                     setTranscript(currentText);
 
-                    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                    // Reset idle timer on each speech result
+                    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
                     if (currentText.trim()) {
-                        silenceTimerRef.current = setTimeout(() => {
-                            // Auto-stop after silence
-                        }, 1500);
+                        idleTimerRef.current = setTimeout(() => {
+                            // Auto-stop after silence following speech
+                            if (recognitionRef.current) {
+                                recognitionRef.current.stop();
+                                setIsListening(false);
+                                clearAllTimers();
+                            }
+                        }, IDLE_TIMEOUT_MS);
                     }
                 };
 
                 recognition.onend = () => {
                     setIsListening(false);
+                    clearAllTimers();
                 };
 
                 recognition.onerror = (event: any) => {
                     console.error("Speech recognition error", event.error);
                     setIsListening(false);
+                    clearAllTimers();
 
                     if (event.error === 'not-allowed') {
                         setError("Microphone permission denied. Please allow access in your browser settings.");
                     } else if (event.error === 'no-speech') {
-                        // Ignore — just silence
+                        // Ignore — the idle timer will handle this
                     } else {
                         setError(`Speech error: ${event.error}`);
                     }
@@ -116,7 +138,15 @@ export function useVoice() {
                 synthesisRef.current = window.speechSynthesis;
             }
         }
-    }, []);
+    }, [clearAllTimers]);
+
+    const stopListening = useCallback(() => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+        }
+        clearAllTimers();
+    }, [clearAllTimers]);
 
     const startListening = useCallback(async () => {
         setError(null);
@@ -126,45 +156,65 @@ export function useVoice() {
         }
 
         try {
-            // Check secure context — getUserMedia requires HTTPS or localhost
+            // Check secure context
             if (!window.isSecureContext) {
                 setError("Microphone requires HTTPS. Please access the app via https:// or localhost.");
                 return;
             }
 
-            // Request microphone permission — this triggers the browser prompt
+            // Request microphone permission
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            // Release the stream immediately — SpeechRecognition manages its own audio
             stream.getTracks().forEach(track => track.stop());
 
             setTranscript('');
             recognitionRef.current.start();
             setIsListening(true);
+
+            // Start countdown
+            startTimeRef.current = Date.now();
+            const maxSec = MAX_DURATION_MS / 1000;
+            setTimeRemaining(maxSec);
+
+            // Countdown interval (update every second)
+            countdownRef.current = setInterval(() => {
+                const elapsed = Date.now() - startTimeRef.current;
+                const remaining = Math.max(0, Math.ceil((MAX_DURATION_MS - elapsed) / 1000));
+                setTimeRemaining(remaining);
+            }, 1000);
+
+            // Idle timeout: auto-close if no speech detected within 3s
+            idleTimerRef.current = setTimeout(() => {
+                if (recognitionRef.current) {
+                    recognitionRef.current.stop();
+                    setIsListening(false);
+                    clearAllTimers();
+                }
+            }, IDLE_TIMEOUT_MS);
+
+            // Max duration: hard stop at 15s
+            maxTimerRef.current = setTimeout(() => {
+                if (recognitionRef.current) {
+                    recognitionRef.current.stop();
+                    setIsListening(false);
+                    clearAllTimers();
+                }
+            }, MAX_DURATION_MS);
+
         } catch (e: any) {
             console.error("Error starting recognition:", e);
             if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
                 setError("Microphone permission denied. Please allow access in your browser settings (click the 🔒 icon in the address bar).");
             } else if (e.message && e.message.includes('already started')) {
-                // Ignore if already active
                 return;
             } else {
                 setError(`Failed to access microphone: ${e.message}`);
             }
         }
-    }, []);
-
-    const stopListening = useCallback(() => {
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-            setIsListening(false);
-        }
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    }, []);
+    }, [clearAllTimers]);
 
     const speak = useCallback((text: string, lang = 'en-US') => {
         if (!synthesisRef.current) return;
 
-        // Cancel any current speaking
         synthesisRef.current.cancel();
 
         const utterance = new SpeechSynthesisUtterance(text);
@@ -190,11 +240,20 @@ export function useVoice() {
         }
     }, []);
 
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            clearAllTimers();
+        };
+    }, [clearAllTimers]);
+
     return {
         isListening,
         isSpeaking,
         transcript,
         error,
+        timeRemaining,
+        maxDuration: MAX_DURATION_MS / 1000,
         startListening,
         stopListening,
         speak,

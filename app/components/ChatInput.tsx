@@ -83,9 +83,9 @@ export default function ChatInput({ onSendMessage, isLoading = false, showUpload
       <div className="
         relative
         flex items-center gap-2
-        bg-white/50 dark:bg-[#1e1e1e]/60 backdrop-blur-xl
+        bg-white/40 dark:bg-[#1e1e1e]/40 backdrop-blur-2xl
         rounded-3xl
-        border border-purple-100/50 dark:border-purple-800/30
+        border border-purple-100/30 dark:border-purple-800/20
         shadow-lg shadow-purple-900/5
         p-2
         transition-all duration-300
