@@ -40,7 +40,7 @@ export default function VoiceVisualizer({ isListening, isSpeaking, onStop, timeR
             className={`fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-2xl transition-all duration-400 ease-out
                 ${visible && !exiting
                     ? 'opacity-100'
-                    : 'opacity-0'
+                    : 'opacity-0 pointer-events-none'
                 }
             `}
             style={{

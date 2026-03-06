@@ -47,7 +47,16 @@ declare global {
 const IDLE_TIMEOUT_MS = 3000;   // Auto-close after 3s of no speech
 const MAX_DURATION_MS = 15000;  // Hard limit: 15s max
 
-export function useVoice() {
+const LANG_MAP: Record<string, string> = {
+    en: 'en-US',
+    zh: 'zh-CN',
+    ja: 'ja-JP',
+    ko: 'ko-KR',
+    es: 'es-ES',
+    ms: 'ms-MY',
+};
+
+export function useVoice(lang?: string) {
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [transcript, setTranscript] = useState('');
@@ -60,6 +69,10 @@ export function useVoice() {
     const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const startTimeRef = useRef<number>(0);
+    const langRef = useRef<string>(LANG_MAP[lang ?? ''] ?? lang ?? 'en-US');
+
+    // Keep langRef in sync with prop
+    langRef.current = LANG_MAP[lang ?? ''] ?? lang ?? 'en-US';
 
     // Clear all timers
     const clearAllTimers = useCallback(() => {

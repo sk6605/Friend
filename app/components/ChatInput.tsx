@@ -7,13 +7,15 @@ interface ChatInputProps {
   isLoading?: boolean;
   showUpload?: boolean;
   onStartVoice?: () => void;
+  isVoiceActive?: boolean;
 }
 
-export default function ChatInput({ onSendMessage, isLoading = false, showUpload = true, onStartVoice }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, isLoading = false, showUpload = true, onStartVoice, isVoiceActive = false }: ChatInputProps) {
   const [text, setText] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevVoiceActiveRef = useRef(false);
 
   // Auto-resize textarea
   const adjustHeight = useCallback(() => {
@@ -34,6 +36,16 @@ export default function ChatInput({ onSendMessage, isLoading = false, showUpload
       textareaRef.current?.focus();
     }
   }, [isLoading]);
+
+  // Re-focus textarea when voice input ends
+  useEffect(() => {
+    if (prevVoiceActiveRef.current && !isVoiceActive) {
+      // Delay to let the VoiceVisualizer exit animation finish (400ms)
+      const timer = setTimeout(() => textareaRef.current?.focus(), 450);
+      return () => clearTimeout(timer);
+    }
+    prevVoiceActiveRef.current = isVoiceActive;
+  }, [isVoiceActive]);
 
   const handleSend = () => {
     if ((!text.trim() && uploadedFiles.length === 0) || isLoading) return;
