@@ -144,15 +144,6 @@ function formatSegmentedText(text: string): string {
   return result.join('\n');
 }
 
-// Add a new function to prepare text for AI analysis
-export function prepareTextForAI(extractedText: string): string {
-  const segments = extractedText.split(/\[SEGMENT_\d+\]/).filter(s => s.trim());
-  
-  return segments
-    .map((segment, index) => `SEGMENT ${index + 1}:\n${segment.trim()}`)
-    .join('\n\n---\n\n');
-}
-
 async function extractFromExcel(filePath: string): Promise<string> {
   try {
     const workbook = XLSX.readFile(filePath);
@@ -171,8 +162,3 @@ async function extractFromExcel(filePath: string): Promise<string> {
     throw new Error(`Excel extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
-
-// In your route handler that processes the extracted text
-// const extractedText = await extractTextFromFile(filePath, fileName);
-// const aiFormattedText = prepareTextForAI(extractedText);
-// Pass aiFormattedText to your AI model for analysis

@@ -93,18 +93,3 @@ export async function checkRestriction(userId: string): Promise<{
     reason: user.restrictionReason,
   };
 }
-
-/**
- * Admin: lift a user's restriction manually.
- */
-export async function liftRestriction(userId: string): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      restricted: false,
-      restrictedAt: null,
-      restrictedUntil: null,
-      restrictionReason: null,
-    },
-  });
-}

@@ -58,17 +58,6 @@ export async function deactivateSafeMode(
 }
 
 /**
- * Check if a user is currently in SAFE_MODE.
- */
-export async function isInSafeMode(userId: string): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { safeMode: true },
-  });
-  return user?.safeMode ?? false;
-}
-
-/**
  * Record a crisis event in the database.
  * Returns the created event ID.
  */
