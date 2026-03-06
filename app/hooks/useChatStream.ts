@@ -355,7 +355,7 @@ export function useChatStream({
             // Refetch async generated conversation title (sync with sidebar)
             const refreshTitle = async () => {
                 try {
-                    const convResp = await fetch(`/api/conversations/${convId}`);
+                    const convResp = await fetch(`/api/conversations/${convId}?userId=${userId}`);
                     if (convResp.ok) {
                         const updatedConv = await convResp.json();
                         updateConversationTitle(convId, updatedConv.title);

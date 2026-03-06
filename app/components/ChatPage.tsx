@@ -284,7 +284,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
   const loadConversation = async (id: string, checkMood: boolean = false) => {
     try {
       setIsLoadingConversation(true);
-      const response = await fetch(`/api/conversations/${id}`);
+      const response = await fetch(`/api/conversations/${id}?userId=${userId}`);
 
       if (response.ok) {
         const conversation: Conversation = await response.json();
