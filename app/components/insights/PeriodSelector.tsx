@@ -14,6 +14,7 @@ export default function PeriodSelector({ options, selected, onChange, label }: P
         <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{label}</span>
       )}
       <select
+        title="Select period"
         value={selected}
         onChange={(e) => onChange(e.target.value)}
         className="

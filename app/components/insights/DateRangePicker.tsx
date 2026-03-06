@@ -36,6 +36,7 @@ export default function DateRangePicker({
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">From</span>
       <input
+        title="Select start date"
         type="date"
         value={startDate}
         min={minDate}
@@ -45,6 +46,7 @@ export default function DateRangePicker({
       />
       <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">To</span>
       <input
+        title="Select end date"
         type="date"
         value={endDate}
         min={startDate}
