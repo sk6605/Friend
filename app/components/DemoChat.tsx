@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { getAllPersonas, PersonaDefinition } from '@/app/lib/ai/personaPrompts';
 
-const MAX_USER_MESSAGES = 10;
+const MAX_USER_MESSAGES = 4;
 
 type Lang = 'zh' | 'en';
 
