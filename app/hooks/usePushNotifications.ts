@@ -1,87 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+declare global {
+  interface Window {
+    OneSignal: any;
+    OneSignalDeferred: any[];
+    _oneSignalReady: boolean;
+  }
+}
 
-function urlBase64ToUint8Array(base64String: string) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
+function waitForOneSignal(): Promise<any> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return;
+    if (window._oneSignalReady && window.OneSignal) {
+      resolve(window.OneSignal);
+      return;
     }
-    return outputArray;
+    window.addEventListener('onesignal-ready', () => resolve(window.OneSignal), { once: true });
+  });
 }
 
 export function usePushNotifications(userId: string) {
-    const [isSubscribed, setIsSubscribed] = useState(false);
-    const [subscription, setSubscription] = useState<PushSubscription | null>(null);
-    const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
-    useEffect(() => {
-        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && userId) {
-            // Register SW
-            navigator.serviceWorker.register('/sw.js')
-                .then(reg => {
-                    setRegistration(reg);
-                    reg.pushManager.getSubscription().then(sub => {
-                        if (sub) {
-                            setSubscription(sub);
-                            setIsSubscribed(true);
-                            // Optimistically update DB in case it's out of sync?
-                            // Or just assume it's fine.
-                        }
-                    });
-                })
-                .catch(err => console.error('SW registration failed:', err));
-        }
-    }, [userId]);
+  useEffect(() => {
+    if (!userId) return;
+    waitForOneSignal().then(async (os) => {
+      await os.login(userId);
+      setIsSubscribed(!!os.User.PushSubscription.optedIn);
+    }).catch(() => {});
+  }, [userId]);
 
-    const subscribe = async () => {
-        if (!registration || !VAPID_PUBLIC_KEY) {
-            console.error("No SW registration or VAPID key");
-            return;
-        }
+  const subscribe = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const os = await waitForOneSignal();
+      await os.login(userId);
+      await os.Notifications.requestPermission();
+      if (os.User.PushSubscription.optedIn) {
+        await fetch('/api/notifications/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+        setIsSubscribed(true);
+      }
+    } catch (err) {
+      console.error('Subscribe failed:', err);
+    }
+  }, [userId]);
 
-        try {
-            const sub = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
+  const unsubscribe = useCallback(async () => {
+    try {
+      const os = await waitForOneSignal();
+      await os.User.PushSubscription.optOut();
+      setIsSubscribed(false);
+      await fetch('/api/notifications/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+    } catch (err) {
+      console.error('Unsubscribe failed:', err);
+    }
+  }, [userId]);
 
-            setSubscription(sub);
-            setIsSubscribed(true);
-
-            // Send to backend
-            await fetch('/api/notifications/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, subscription: sub }),
-            });
-
-            console.log('Subscribed successfully');
-        } catch (error) {
-            console.error('Failed to subscribe:', error);
-        }
-    };
-
-    const unsubscribe = async () => {
-        if (!subscription) return;
-        try {
-            await subscription.unsubscribe();
-            setSubscription(null);
-            setIsSubscribed(false);
-
-            // Notify backend (optional, but good practice)
-            // await fetch('/api/notifications/unsubscribe', ...)
-        } catch (err) {
-            console.error("Error unsubscribing", err);
-        }
-    };
-
-    return { isSubscribed, subscribe, unsubscribe };
+  return { isSubscribed, subscribe, unsubscribe };
 }

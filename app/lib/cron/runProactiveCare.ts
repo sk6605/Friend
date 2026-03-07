@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
-import webpush from 'web-push';
 import { prisma } from '@/app/lib/db';
 import { getPersonaDefinition } from '@/app/lib/ai/personaPrompts';
+import { sendPushNotification } from '@/app/lib/onesignal';
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -9,17 +9,7 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey });
 }
 
-function initWebPush() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (publicKey && privateKey) {
-    webpush.setVapidDetails('mailto:admin@friendai.com', publicKey, privateKey);
-  }
-}
-
 export async function runProactiveCare(): Promise<{ sentCount: number; totalChecked: number }> {
-  initWebPush();
-
   const now = new Date();
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
@@ -28,7 +18,7 @@ export async function runProactiveCare(): Promise<{ sentCount: number; totalChec
   const users = await prisma.user.findMany({
     where: {
       dataControl: true,
-      pushSubscription: { not: null },
+      pushSubscription: 'onesignal',
       OR: [
         { lastProactiveCareAt: null },
         { lastProactiveCareAt: { lt: oneDayAgo } },
@@ -138,17 +128,10 @@ Recent emotional state: ${latestInsight?.emotionalState || 'unknown'}`,
         },
       });
 
-      if (user.pushSubscription) {
-        try {
-          const subscription = JSON.parse(user.pushSubscription);
-          await webpush.sendNotification(subscription, JSON.stringify({
-            title: user.aiName || 'Friend AI',
-            body: message,
-            url: '/chat',
-          }));
-        } catch (pushErr) {
-          console.warn(`Push failed for user ${user.id}:`, pushErr);
-        }
+      try {
+        await sendPushNotification([user.id], user.aiName || 'Friend AI', message, '/chat');
+      } catch (pushErr) {
+        console.warn(`Push failed for user ${user.id}:`, pushErr);
       }
 
       await prisma.user.update({

@@ -4,6 +4,7 @@ import "./globals.css";
 import { ConversationProvider } from "./context/ConversationContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import OneSignalInit from "./components/OneSignalInit";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <OneSignalInit />
         <ErrorBoundary>
           <ThemeProvider>
             <ConversationProvider>

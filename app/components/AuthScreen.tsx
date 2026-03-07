@@ -14,8 +14,8 @@ interface AuthScreenProps {
 }
 
 export default function AuthScreen({ onAuth }: AuthScreenProps) {
-  // First-time user → register, returning user → login
-  const [view, setView] = useState<AuthView>(hasRegistered() ? 'login' : 'register');
+  // Always show login first; new users click "Sign up" to register
+  const [view, setView] = useState<AuthView>('login');
   const [otpEmail, setOtpEmail] = useState('');
   const [devOtp, setDevOtp] = useState<string | undefined>();
   const [showDemo, setShowDemo] = useState(false);

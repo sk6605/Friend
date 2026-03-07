@@ -1,14 +1,6 @@
 import { prisma } from '@/app/lib/db';
 import { fetchForecast, detectRainToday } from '@/app/lib/weather';
-import webpush from 'web-push';
-
-function initWebPush() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (publicKey && privateKey) {
-    webpush.setVapidDetails('mailto:admin@friendai.com', publicKey, privateKey);
-  }
-}
+import { sendPushNotification } from '@/app/lib/onesignal';
 
 /**
  * Calculate the notification time for a user:
@@ -57,8 +49,6 @@ function isInNotifyWindow(targetHour: number, targetMinute: number): boolean {
 }
 
 export async function runRainAlert(): Promise<{ alertsSent: number; usersChecked: number }> {
-  initWebPush();
-
   const users = await prisma.user.findMany({
     where: {
       city: { not: null },
@@ -143,15 +133,10 @@ export async function runRainAlert(): Promise<{ alertsSent: number; usersChecked
       },
     });
 
-    // Send Web Push
-    if (user.pushSubscription) {
+    // Send via OneSignal
+    if (user.pushSubscription === 'onesignal') {
       try {
-        const subscription = JSON.parse(user.pushSubscription);
-        await webpush.sendNotification(subscription, JSON.stringify({
-          title,
-          body: pushBody,
-          url: '/chat',
-        }));
+        await sendPushNotification([user.id], title, pushBody, '/chat');
       } catch (pushErr) {
         console.warn(`Rain alert push failed for user ${user.id}:`, pushErr);
       }
