@@ -6,7 +6,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { detectLanguage } from "@/app/lib/language/detect";
 
-import { buildLocalePrompt, langCodeToName } from "@/app/lib/language/locale";
 import { shouldSummarize } from "@/app/lib/ai/shouldSummarize";
 import { generateSummary } from "@/app/lib/ai/summary";
 import { generateTitle } from "@/app/lib/ai/generateTitle";

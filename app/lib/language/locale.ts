@@ -12,6 +12,12 @@ export function buildLocalePrompt(lang: string): string {
       return 'Respond in friendly, natural Malay (Bahasa Melayu).';
     case 'de':
       return 'Respond in concise, direct German (Deutsch).';
+    case 'fr':
+      return 'Respond in friendly, natural French (Français).';
+    case 'ar':
+      return 'Respond in friendly, natural Arabic (العربية).';
+    case 'th':
+      return 'Respond in friendly, natural Thai (ภาษาไทย).';
     case 'en':
     default:
       return 'Respond in friendly, natural English.';
@@ -28,6 +34,9 @@ export function langCodeToName(code: string): string {
     ko: 'Korean (한국어)',
     ms: 'Malay (Bahasa Melayu)',
     de: 'German (Deutsch)',
+    fr: 'French (Français)',
+    ar: 'Arabic (العربية)',
+    th: 'Thai (ภาษาไทย)',
   };
   return map[code] || code;
 }

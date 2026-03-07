@@ -117,19 +117,10 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // Check if we already generated a challenge for today (stored in DB)
         const todayEnd = new Date(today);
         todayEnd.setHours(23, 59, 59, 999);
 
-        const todaysGenerated = await prisma.dailyChallenge.findFirst({
-            where: {
-                createdAt: { gte: today, lte: todayEnd },
-                completions: { some: { userId } },
-            },
-        });
-
-        // If we already assigned one today but it wasn't completed, find it
-        // We use a naming convention: challenges with text starting with "[user:" are personalized
+        // Check if we already assigned a personalized challenge today (not yet completed)
         const personalizedToday = await prisma.dailyChallenge.findFirst({
             where: {
                 text: { startsWith: `[user:${userId}]` },
@@ -141,40 +132,37 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({
                 challenge: {
                     ...personalizedToday,
-                    // Strip the user tag from display text
                     text: personalizedToday.text.replace(`[user:${userId}]`, '').trim(),
                 },
                 completed: false,
             });
         }
 
-        // Fetch user data for personalization
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { memory: true, profile: true },
-        });
-
-        // Fetch recent mood/emotional data (last 7 days)
+        // Fetch all data needed for personalization in parallel
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-
-        const recentInsights = await prisma.dailyInsight.findMany({
-            where: { userId, date: { gte: weekAgo } },
-            select: { mood: true, topics: true, emotionalState: true },
-            orderBy: { date: 'desc' },
-            take: 5,
-        });
-
-        // Fetch recently completed challenge texts (last 14 days) to avoid repeats
         const twoWeeksAgo = new Date();
         twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
-        const recentCompletions = await prisma.userChallenge.findMany({
-            where: { userId, completedAt: { gte: twoWeeksAgo } },
-            include: { challenge: true },
-            orderBy: { completedAt: 'desc' },
-            take: 10,
-        });
+        const [user, recentInsights, recentCompletions] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: { memory: true, profile: true },
+            }),
+            prisma.dailyInsight.findMany({
+                where: { userId, date: { gte: weekAgo } },
+                select: { mood: true, topics: true, emotionalState: true },
+                orderBy: { date: 'desc' },
+                take: 5,
+            }),
+            prisma.userChallenge.findMany({
+                where: { userId, completedAt: { gte: twoWeeksAgo } },
+                include: { challenge: true },
+                orderBy: { completedAt: 'desc' },
+                take: 10,
+            }),
+        ]);
+
         const recentChallengeTexts = recentCompletions.map(c => c.challenge.text);
 
         // Try AI-generated personalized challenge
