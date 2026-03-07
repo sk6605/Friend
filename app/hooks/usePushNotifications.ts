@@ -35,8 +35,8 @@ export function usePushNotifications(userId: string) {
     try {
       const os = await waitForOneSignal();
       await os.login(userId);
-      await os.Notifications.requestPermission();
-      if (os.User.PushSubscription.optedIn) {
+      const granted = await os.Notifications.requestPermission();
+      if (granted) {
         await fetch('/api/notifications/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
