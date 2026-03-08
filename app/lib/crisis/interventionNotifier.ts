@@ -67,24 +67,22 @@ export async function notifyCrisisIntervention(
     });
   }
 
-  // 2. Email notification
-  const alertEmail = process.env.CRISIS_ALERT_EMAIL;
-  if (alertEmail) {
-    await sendCrisisEmail(alertEmail, {
-      nickname,
-      ageGroup,
-      riskLevel: crisisEvent.riskLevel,
-      riskLabel,
-      categoryLabel,
-      triggerContent: crisisEvent.triggerContent,
-      classificationReason: crisisEvent.classificationReason || '',
-      matchedKeywords: crisisEvent.matchedKeywords || [],
-      violationCount: user?.violationCount || 0,
-      isRestricted: user?.restricted || false,
-      eventId: crisisEvent.id,
-      userId,
-    });
-  }
+  // 2. Email notification to Admin
+  const alertEmail = 'liangszekai@gmail.com';
+  await sendCrisisEmail(alertEmail, {
+    nickname,
+    ageGroup,
+    riskLevel: crisisEvent.riskLevel,
+    riskLabel,
+    categoryLabel,
+    triggerContent: crisisEvent.triggerContent,
+    classificationReason: crisisEvent.classificationReason || '',
+    matchedKeywords: crisisEvent.matchedKeywords || [],
+    violationCount: user?.violationCount || 0,
+    isRestricted: user?.restricted || false,
+    eventId: crisisEvent.id,
+    userId,
+  });
 
   console.log(
     `[CRISIS] ${riskLabel} — User: ${nickname} (${userId}), Risk: ${crisisEvent.riskLevel}/3, Event: ${crisisEvent.id}`,

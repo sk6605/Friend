@@ -5,7 +5,7 @@ import ChatBubble from '@/app/components/ChatBubble';
 import ChatInput from '@/app/components/ChatInput';
 import ChatHeader from '@/app/components/Header';
 
-import SafeModeBanner from '@/app/components/SafeModeBanner';
+
 import { useConversations } from '@/app/context/ConversationContext';
 import MoodSelector from '@/app/components/MoodSelect';
 import { useVoice } from '@/app/hooks/useVoice';
@@ -105,7 +105,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
   const { isListening, isSpeaking, transcript, error: voiceError, startListening, stopListening, speak, cancelSpeech, resetTranscript, timeRemaining, maxDuration } = useVoice();
   const prevListeningRef = useRef(isListening);
 
-  const { hasSafeMode, isSafeModeDismissed, triggerSafeMode, dismissSafeModeBanner, syncSafeModeConversations } = useSafeMode();
+  const { hasSafeMode, triggerSafeMode, syncSafeModeConversations } = useSafeMode();
 
 
   const {
@@ -411,13 +411,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
 
         {/* ... */}
 
-        {/* SAFE_MODE Banner */}
-        {safeMode && !isSafeModeDismissed && (
-          <SafeModeBanner
-            language={language}
-            onDismiss={dismissSafeModeBanner}
-          />
-        )}
+
 
         {/* Messages */}
         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6">
