@@ -128,13 +128,63 @@ export async function PATCH(req: NextRequest) {
 
       await deactivateSafeMode(userId, 'admin', reason || 'Admin deactivated SAFE_MODE');
 
-      // Resolve all open crisis events for this user
+      // Resolve all open crisis events for this user (including 'intervening')
       await prisma.crisisEvent.updateMany({
-        where: { userId, status: 'open' },
+        where: { userId, status: { in: ['open', 'intervening', 'acknowledged', 'escalated'] } },
         data: { status: 'resolved', resolvedBy: 'admin', resolvedAt: new Date() },
       });
 
       return Response.json({ ok: true });
+    }
+
+    if (action === 'intervene') {
+      const { eventId } = body;
+      if (!eventId) return Response.json({ error: 'eventId required' }, { status: 400 });
+
+      const updated = await prisma.crisisEvent.update({
+        where: { id: eventId },
+        data: { status: 'intervening' },
+      });
+
+      return Response.json({ ok: true, event: updated });
+    }
+
+    if (action === 'sendMessage') {
+      const { eventId, content } = body;
+      if (!eventId || !content) return Response.json({ error: 'eventId and content required' }, { status: 400 });
+
+      // Find the event to get conversationId
+      const event = await prisma.crisisEvent.findUnique({
+        where: { id: eventId },
+        select: { conversationId: true },
+      });
+
+      if (!event || !event.conversationId) {
+        return Response.json({ error: 'Conversation not found for this event' }, { status: 404 });
+      }
+
+      // Add message as assistant with [Support] prefix
+      const message = await prisma.message.create({
+        data: {
+          conversationId: event.conversationId,
+          role: 'assistant',
+          content: `🚨 **[Safety Support]**\n\n${content}`,
+        },
+      });
+
+      // Ensure the event is in intervening state
+      await prisma.crisisEvent.update({
+        where: { id: eventId },
+        data: { status: 'intervening' }
+      });
+
+      // Update the conversation's messageCount
+      await prisma.conversation.update({
+        where: { id: event.conversationId },
+        data: { messageCount: { increment: 1 } }
+      });
+
+      return Response.json({ ok: true, message });
     }
 
     return Response.json({ error: 'Invalid action' }, { status: 400 });

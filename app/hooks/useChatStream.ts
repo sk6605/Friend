@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * 消息对象的结构定义
@@ -23,6 +23,7 @@ interface UseChatStreamProps {
     onSafeModeTrigger?: (convId: string) => void;
     isVoice?: boolean;
     speak?: (text: string) => void;
+    checkSafeMode?: (id: string) => boolean;
 }
 
 /**
@@ -39,7 +40,8 @@ export function useChatStream({
     updateConversationTitle,
     onSafeModeTrigger,
     isVoice,
-    speak
+    speak,
+    checkSafeMode
 }: UseChatStreamProps) {
 
     // 状态管理 / State Management
@@ -47,6 +49,33 @@ export function useChatStream({
     const [currentConvId, setCurrentConvId] = useState(initialConvId ?? ''); // 当前对话的 ID / Active conversation ID
     const [isLoading, setIsLoading] = useState(false); // 是否正在等待 AI 响应 (显示思考动画) / Shows thinking dots
     const [isStreaming, setIsStreaming] = useState(false); // 是否处于流式响应进行中 (锁定输入框) / Locks input during stream
+
+    // Polling mechanism for Safe Mode (to receive real-time Admin intervention messages)
+    useEffect(() => {
+        const isSafe = checkSafeMode && currentConvId ? checkSafeMode(currentConvId) : false;
+        if (!isSafe || !currentConvId) return;
+
+        const timer = setInterval(() => {
+            if (isStreaming || isLoading) return; // Don't poll while actively querying/streaming
+
+            fetch(`/api/conversations/${currentConvId}?userId=${userId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.messages) {
+                        setMessages(prev => {
+                            // Only update if there are new messages (e.g. from Admin)
+                            if (data.messages.length > prev.length) {
+                                return data.messages;
+                            }
+                            return prev;
+                        });
+                    }
+                })
+                .catch(err => console.error("Polling error:", err));
+        }, 3000); // Poll every 3 seconds during SAFE_MODE
+
+        return () => clearInterval(timer);
+    }, [checkSafeMode, currentConvId, isStreaming, isLoading, userId]);
 
     /**
      * waitForNetwork()
@@ -245,11 +274,7 @@ export function useChatStream({
                     let started = assistantText.length > 0;
 
                     // 在UI中插入一个空的 Assistant 气泡，准备接收流式数据
-                    // Insert empty assistant bubble only on the very first attempt
-                    if (!bubbleInserted) {
-                        setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-                        bubbleInserted = true;
-                    }
+                    // (Moved inside the while loop to prevent empty bubbles on AI pause)
 
                     const CHUNK_TIMEOUT = 45_000; // 每个流式块(Chunk)的最大等待时间: 45秒
 
@@ -259,6 +284,14 @@ export function useChatStream({
                         if (done) break;
 
                         const chunk = decoder.decode(value, { stream: true });
+                        if (!chunk) continue;
+
+                        // Insert empty assistant bubble only on the very first received chunk
+                        if (!bubbleInserted) {
+                            setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+                            bubbleInserted = true;
+                        }
+
                         assistantText += chunk;
 
                         if (!started && assistantText.trim().length > 0) {

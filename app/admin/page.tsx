@@ -200,8 +200,8 @@ const MOOD_COLOR: Record<string, string> = {
 };
 const AGE_BADGE = (g: string) =>
   g === 'child' ? 'bg-amber-500/20 text-amber-400' :
-  g === 'teen' ? 'bg-blue-500/20 text-blue-400' :
-  'bg-purple-500/20 text-purple-400';
+    g === 'teen' ? 'bg-blue-500/20 text-blue-400' :
+      'bg-purple-500/20 text-purple-400';
 
 // ── Main component ─────────────────────────────────────────────
 
@@ -327,6 +327,64 @@ export default function AdminDashboard() {
     } catch { /* ignore */ }
   };
 
+  // Admin chat intervention state
+  const [interveningEvent, setInterveningEvent] = useState<any>(null);
+  const [adminChatMessages, setAdminChatMessages] = useState<any[]>([]);
+  const [adminMessageInput, setAdminMessageInput] = useState('');
+  const [adminChatLoading, setAdminChatLoading] = useState(false);
+
+  // Poll for messages when intervene modal is open
+  useEffect(() => {
+    if (!interveningEvent) return;
+    const loadChat = async () => {
+      try {
+        const res = await fetch(`/api/conversations/${interveningEvent.conversationId}?userId=${interveningEvent.userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAdminChatMessages(data.messages || []);
+        }
+      } catch (err) { }
+    };
+    loadChat();
+    const timer = setInterval(loadChat, 3000); // 3s polling
+    return () => clearInterval(timer);
+  }, [interveningEvent]);
+
+  // Handle open modal
+  const handleIntervene = async (evt: any) => {
+    if (evt.status !== 'intervening') {
+      await handleCrisisAction('intervene', { eventId: evt.id });
+      setCrisisEvents(prev => prev.map(e => e.id === evt.id ? { ...e, status: 'intervening' } : e));
+    }
+    setInterveningEvent({ ...evt, status: 'intervening' });
+  };
+
+  const handleSendAdminMessage = async () => {
+    if (!adminMessageInput.trim() || !interveningEvent) return;
+    setAdminChatLoading(true);
+    try {
+      const res = await fetch(`/api/admin/crisis?key=${encodeURIComponent(adminKey)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sendMessage',
+          eventId: interveningEvent.id,
+          content: adminMessageInput
+        })
+      });
+      if (res.ok) {
+        setAdminMessageInput('');
+        const convRes = await fetch(`/api/conversations/${interveningEvent.conversationId}?userId=${interveningEvent.userId}`);
+        const data = await convRes.json();
+        setAdminChatMessages(data.messages || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAdminChatLoading(false);
+    }
+  };
+
   // ── Login screen ──
 
   if (!authenticated) {
@@ -418,11 +476,10 @@ export default function AdminDashboard() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                activeTab === tab.key
-                  ? 'bg-purple-600 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.key
+                ? 'bg-purple-600 text-white'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
             >
               {tab.label}
               {tab.badge !== undefined && tab.badge > 0 && (
@@ -639,17 +696,15 @@ export default function AdminDashboard() {
                         {userDetail.subscription ? (
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                             <div>
-                              <p className={`text-lg font-bold ${
-                                userDetail.subscription.planKey === 'premium' ? 'text-amber-400' :
+                              <p className={`text-lg font-bold ${userDetail.subscription.planKey === 'premium' ? 'text-amber-400' :
                                 userDetail.subscription.planKey === 'pro' ? 'text-purple-400' : 'text-white'
-                              }`}>{userDetail.subscription.plan}</p>
+                                }`}>{userDetail.subscription.plan}</p>
                               <p className="text-xs text-slate-400">Plan</p>
                             </div>
                             <div>
-                              <p className={`text-lg font-bold ${
-                                userDetail.subscription.status === 'active' ? 'text-emerald-400' :
+                              <p className={`text-lg font-bold ${userDetail.subscription.status === 'active' ? 'text-emerald-400' :
                                 userDetail.subscription.status === 'cancelled' ? 'text-red-400' : 'text-yellow-400'
-                              }`}>{userDetail.subscription.status}</p>
+                                }`}>{userDetail.subscription.status}</p>
                               <p className="text-xs text-slate-400">Status</p>
                             </div>
                             <div>
@@ -812,11 +867,10 @@ export default function AdminDashboard() {
                         <td className="px-4 py-3 text-slate-300 hidden sm:table-cell">{u.aiName}</td>
                         <td className="px-4 py-3 text-center">
                           {u.subscription ? (
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              u.subscription.planKey === 'premium' ? 'bg-amber-500/20 text-amber-400' :
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.subscription.planKey === 'premium' ? 'bg-amber-500/20 text-amber-400' :
                               u.subscription.planKey === 'pro' ? 'bg-purple-500/20 text-purple-400' :
-                              'bg-slate-500/20 text-slate-400'
-                            }`}>
+                                'bg-slate-500/20 text-slate-400'
+                              }`}>
                               {u.subscription.plan}
                             </span>
                           ) : (
@@ -1064,11 +1118,10 @@ export default function AdminDashboard() {
                 <button
                   key={f}
                   onClick={() => setCrisisFilter(f)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    crisisFilter === f
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${crisisFilter === f
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
                 >
                   {f.charAt(0).toUpperCase() + f.slice(1)}
                 </button>
@@ -1107,12 +1160,11 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                              evt.riskLevel === 3 ? 'bg-red-500/20 text-red-400' :
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${evt.riskLevel === 3 ? 'bg-red-500/20 text-red-400' :
                               evt.riskLevel === 2 ? 'bg-orange-500/20 text-orange-400' :
-                              evt.riskLevel === 1 ? 'bg-yellow-500/20 text-yellow-400' :
-                              'bg-slate-500/20 text-slate-400'
-                            }`}>
+                                evt.riskLevel === 1 ? 'bg-yellow-500/20 text-yellow-400' :
+                                  'bg-slate-500/20 text-slate-400'
+                              }`}>
                               {evt.riskLevel === 3 ? 'IMMINENT' : evt.riskLevel === 2 ? 'HIGH' : evt.riskLevel === 1 ? 'DISTRESS' : 'NORMAL'}
                             </span>
                           </td>
@@ -1120,12 +1172,11 @@ export default function AdminDashboard() {
                             {evt.triggerContent.substring(0, 80)}{evt.triggerContent.length > 80 ? '...' : ''}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-xs ${
-                              evt.status === 'open' ? 'bg-red-500/20 text-red-400' :
+                            <span className={`px-2 py-0.5 rounded-full text-xs ${evt.status === 'open' ? 'bg-red-500/20 text-red-400' :
                               evt.status === 'acknowledged' ? 'bg-blue-500/20 text-blue-400' :
-                              evt.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' :
-                              'bg-purple-500/20 text-purple-400'
-                            }`}>
+                                evt.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-400' :
+                                  'bg-purple-500/20 text-purple-400'
+                              }`}>
                               {evt.status}
                             </span>
                           </td>
@@ -1150,6 +1201,14 @@ export default function AdminDashboard() {
                                   Resolve
                                 </button>
                               )}
+                              {(evt.status === 'open' || evt.status === 'acknowledged' || evt.status === 'intervening') && (
+                                <button
+                                  onClick={() => handleIntervene(evt)}
+                                  className="px-2 py-1 rounded text-xs bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                                >
+                                  Intervene
+                                </button>
+                              )}
                               {evt.status !== 'escalated' && evt.status !== 'resolved' && (
                                 <button
                                   onClick={() => handleCrisisAction('updateEvent', { eventId: evt.id, status: 'escalated' })}
@@ -1170,6 +1229,62 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {interveningEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+          <div className="bg-slate-900 rounded-3xl w-full max-w-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col h-[80vh]">
+            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Intervening: {interveningEvent.user?.nickname || 'Unknown'}</h3>
+                <p className="text-xs text-slate-400">Risk: Level {interveningEvent.riskLevel}</p>
+              </div>
+              <button title="Close" onClick={() => setInterveningEvent(null)} className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {adminChatMessages.length === 0 && (
+                <div className="text-center text-slate-500 py-10">Loading chat history...</div>
+              )}
+              {adminChatMessages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
+                    ? 'bg-purple-600 text-white'
+                    : (msg.content.includes('[Safety Support]') || msg.content.includes('[Admin]'))
+                      ? 'bg-emerald-600/20 text-emerald-100 border border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-200'
+                    }`}>
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <span className="text-[10px] opacity-50 mt-1 block">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 bg-slate-800/50 border-t border-slate-800">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={adminMessageInput}
+                  onChange={(e) => setAdminMessageInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendAdminMessage()}
+                  placeholder="Type a message as Support Team..."
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                />
+                <button
+                  onClick={handleSendAdminMessage}
+                  disabled={adminChatLoading || !adminMessageInput.trim()}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium text-sm rounded-xl transition-colors"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

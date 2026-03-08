@@ -374,6 +374,7 @@ function ChatScreen({
   const [isStreaming, setIsStreaming] = useState(false);
   const [userMsgCount, setUserMsgCount] = useState(0);
   const [showLimit, setShowLimit] = useState(false);
+  const [lastMessageTime, setLastMessageTime] = useState(0); // For rate-limiting / bombing prevention
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const greeting = strings.greetings[persona.key as keyof typeof strings.greetings]
@@ -391,11 +392,24 @@ function ChatScreen({
     const text = input.trim();
     if (!text || isStreaming) return;
 
+    // Protection: Prevent message bombing (cooldown of 3 seconds)
+    const now = Date.now();
+    if (now - lastMessageTime < 3000) {
+      // Option to show a toast, or just ignore early send.
+      return;
+    }
+
+    // Protection: Character limit enforcement fallback
+    if (text.length > 250) {
+      return;
+    }
+
     if (userMsgCount >= MAX_USER_MESSAGES) {
       setShowLimit(true);
       return;
     }
 
+    setLastMessageTime(now);
     const newCount = userMsgCount + 1;
     setUserMsgCount(newCount);
     setInput('');
@@ -555,6 +569,7 @@ function ChatScreen({
               disabled:opacity-50 disabled:cursor-not-allowed
               transition-all max-h-32
             "
+            maxLength={250}
             style={{ lineHeight: '1.5' }}
           />
           <button

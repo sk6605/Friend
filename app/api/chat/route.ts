@@ -123,7 +123,10 @@ export async function POST(req: NextRequest) {
       const dailyLimit = subscription?.plan?.dailyMessageLimit ?? 20; // default to free plan limit
       userPlanName = subscription?.plan?.name ?? 'Free';
 
-      if (dailyLimit !== -1 && messagesToday >= dailyLimit) {
+      // Bypass daily limit if user is in SAFE_MODE (to allow crisis intervention)
+      const isUserSafeMode = await prisma.user.findUnique({ where: { id: userId }, select: { safeMode: true } });
+
+      if (dailyLimit !== -1 && messagesToday >= dailyLimit && !isUserSafeMode?.safeMode) {
         return NextResponse.json(
           {
             error: `You've reached your daily limit of ${dailyLimit} messages. Upgrade your plan for more!`,
@@ -203,6 +206,7 @@ export async function POST(req: NextRequest) {
     let preferredLanguage = '';
     let personaPrompt = '';
     let isSafeMode = false;
+    let isIntervening = false;
     let safeModeCategory = 'self_harm' as 'self_harm' | 'extreme_speech';
     let userAgeGroup = 'adult';
     let userDataControl = true;
@@ -235,12 +239,13 @@ export async function POST(req: NextRequest) {
               userId,
               conversationId,
               riskLevel: { gte: 2 },
-              status: { in: ['open', 'escalated'] },
+              status: { in: ['open', 'escalated', 'acknowledged', 'intervening'] },
             },
-            select: { classificationReason: true },
+            select: { classificationReason: true, status: true },
           });
           isSafeMode = !!activeCrisisForConv;
           if (activeCrisisForConv) {
+            if (activeCrisisForConv.status === 'intervening') isIntervening = true;
             const reason = activeCrisisForConv.classificationReason || '';
             safeModeCategory = reason.toLowerCase().includes('extreme_speech') ? 'extreme_speech' : 'self_harm';
           }
@@ -462,21 +467,26 @@ Ask the user which city they'd like weather for, and mention you can remember it
           const openai = getOpenAIClient();
           await sleep(1500);
 
-          const response = await openai.chat.completions.create({
-            model: "gpt-4.1-mini",
-            messages: formattedMessages,
-            stream: true,
-          });
+          if (isIntervening) {
+            // Human is actively intervening: do not call OpenAI. AI is paused.
+            controller.close();
+          } else {
+            const response = await openai.chat.completions.create({
+              model: "gpt-4.1-mini",
+              messages: formattedMessages,
+              stream: true,
+            });
 
-          for await (const chunk of response) {
-            const content = chunk.choices[0]?.delta?.content || "";
-            if (!content) continue;
-            await sleep(30);
-            fullAnswerEn += content;
-            controller.enqueue(encoder.encode(content));
+            for await (const chunk of response) {
+              const content = chunk.choices[0]?.delta?.content || "";
+              if (!content) continue;
+              await sleep(30);
+              fullAnswerEn += content;
+              controller.enqueue(encoder.encode(content));
+            }
+
+            controller.close();
           }
-
-          controller.close();
 
           // Post-stream processing
           try {

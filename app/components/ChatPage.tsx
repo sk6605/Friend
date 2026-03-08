@@ -123,7 +123,8 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     updateConversationTitle,
     onSafeModeTrigger: triggerSafeMode,
     isVoice: isListening || isSpeaking,
-    speak: speak
+    speak: speak,
+    checkSafeMode: hasSafeMode
   });
 
   const safeMode = currentConvId ? hasSafeMode(currentConvId) : false;

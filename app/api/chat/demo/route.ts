@@ -18,7 +18,8 @@ function checkRateLimit(ip: string): boolean {
     return true;
   }
   entry.count++;
-  return entry.count <= 20;
+  // MAX 4 demo messages per session, tightly restrict to 5 per minute per IP.
+  return entry.count <= 5;
 }
 
 /**
@@ -45,6 +46,12 @@ export async function POST(req: NextRequest) {
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json({ error: "Invalid messages." }, { status: 400 });
+  }
+
+  // Prevent excessively long demo messages
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage?.content && lastMessage.content.length > 300) {
+    return NextResponse.json({ error: "Message too long." }, { status: 400 });
   }
 
   const langRule =
