@@ -7,7 +7,6 @@ import Link from 'next/link';
 export default function NotificationSettings({ userId }: { userId: string }) {
     const { isSubscribed, subscribe, unsubscribe } = usePushNotifications(userId);
     const [loading, setLoading] = useState(true);
-    const [testSent, setTestSent] = useState(false);
     const [plan, setPlan] = useState<'free' | 'pro' | 'premium'>('free');
 
     useEffect(() => {
@@ -39,24 +38,6 @@ export default function NotificationSettings({ userId }: { userId: string }) {
         }
         setLoading(false);
     };
-
-    const sendTest = async () => {
-        setLoading(true);
-        try {
-            await fetch('/api/notifications/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId })
-            });
-            setTestSent(true);
-            setTimeout(() => setTestSent(false), 3000);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const isLocked = plan === 'free';
 
     return (
@@ -105,17 +86,6 @@ export default function NotificationSettings({ userId }: { userId: string }) {
                 </div>
             )}
 
-            {!isLocked && isSubscribed && (
-                <div className="mt-4 pt-4 border-t border-purple-500/10 dark:border-white/10">
-                    <button
-                        onClick={sendTest}
-                        disabled={loading}
-                        className="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-500 dark:hover:text-purple-300 underline font-medium transition-colors"
-                    >
-                        {testSent ? "Test Sent! Check notifications." : "Send Test Notification"}
-                    </button>
-                </div>
-            )}
         </div>
     );
 }
