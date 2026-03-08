@@ -31,7 +31,7 @@ export async function GET(
         where: {
           userId: id,
           riskLevel: { gte: 2 },
-          status: { in: ['open', 'escalated'] },
+          status: { in: ['open', 'escalated', 'acknowledged', 'intervening'] },
           conversationId: { not: null },
         },
         select: { conversationId: true },

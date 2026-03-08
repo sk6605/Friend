@@ -63,9 +63,15 @@ export function useChatStream({
                 .then(data => {
                     if (data && data.messages) {
                         setMessages(prev => {
-                            // Only update if there are new messages (e.g. from Admin)
+                            // Only update if there are new messages or if the last message content changed (e.g. Admin override)
                             if (data.messages.length > prev.length) {
                                 return data.messages;
+                            } else if (data.messages.length === prev.length) {
+                                const lastDb = data.messages[data.messages.length - 1];
+                                const lastLocal = prev[prev.length - 1];
+                                if (lastDb && lastLocal && lastDb.content !== lastLocal.content) {
+                                    return data.messages;
+                                }
                             }
                             return prev;
                         });

@@ -446,7 +446,13 @@ export default function AdminDashboard() {
               {new Date(data.generatedAt).toLocaleString()}
             </span>
             <button
-              onClick={refresh}
+              onClick={() => {
+                if (activeTab === 'crisis') {
+                  fetchCrisisData(crisisFilter);
+                } else {
+                  refresh();
+                }
+              }}
               disabled={loading}
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm transition-colors border border-slate-700"
             >
