@@ -33,6 +33,11 @@ export async function GET(
         departureTime: true,
         dataControl: true,
         persona: true,
+        subscription: {
+          include: {
+            plan: true,
+          },
+        },
       },
     });
 

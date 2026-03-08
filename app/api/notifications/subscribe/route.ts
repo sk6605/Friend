@@ -8,6 +8,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
     }
 
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId },
+      include: { plan: true }
+    });
+
+    const planName = subscription?.plan?.name || 'free';
+    if (planName !== 'pro' && planName !== 'premium') {
+      return NextResponse.json({ error: 'Pro or Premium subscription required for push notifications' }, { status: 403 });
+    }
+
     await prisma.user.update({
       where: { id: userId },
       data: { pushSubscription: 'onesignal' },

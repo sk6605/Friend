@@ -52,6 +52,13 @@ export async function runRainAlert(): Promise<{ alertsSent: number; usersChecked
   const users = await prisma.user.findMany({
     where: {
       city: { not: null },
+      subscription: {
+        plan: {
+          name: {
+            in: ['pro', 'premium']
+          }
+        }
+      }
     },
     select: {
       id: true,

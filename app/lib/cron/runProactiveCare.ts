@@ -23,6 +23,13 @@ export async function runProactiveCare(): Promise<{ sentCount: number; totalChec
         { lastProactiveCareAt: null },
         { lastProactiveCareAt: { lt: oneDayAgo } },
       ],
+      subscription: {
+        plan: {
+          name: {
+            in: ['pro', 'premium']
+          }
+        }
+      }
     },
     include: {
       dailyInsights: {

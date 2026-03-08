@@ -1,4 +1,4 @@
-const ONESIGNAL_APP_ID = 'f86513d7-fd4c-4309-a6e2-62735f7a8f78';
+const ONESIGNAL_APP_ID = '81fa54b9-f9ca-4c1c-a0a1-28fe793571c5';
 
 /**
  * Send a push notification via OneSignal REST API.
