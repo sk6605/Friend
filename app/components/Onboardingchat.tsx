@@ -209,7 +209,7 @@ export default function OnboardingChat({
   };
 
   const handleAiNameNo = () => {
-    const d = { ...data, aiName: 'Friend AI' };
+    const d = { ...data, aiName: 'Lumi' };
     setData(d);
     finishAccount(d);
   };
@@ -390,7 +390,7 @@ export default function OnboardingChat({
               onClick={handleAiNameNo}
               className="w-full py-3.5 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200/80 dark:border-purple-800/30 text-neutral-600 dark:text-neutral-300 font-medium text-sm hover:bg-neutral-150 dark:hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
-              No, keep &quot;Friend AI&quot;
+              No, keep &quot;Lumi&quot;
             </button>
           </div>
         )}

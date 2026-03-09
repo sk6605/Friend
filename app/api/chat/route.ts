@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
     let userProfilePrompt = '';
     let ageGroupPrompt = adultPrompt;
     let crossConversationMemory = '';
-    let customAiName = 'Friend AI';
+    let customAiName = 'Lumi';
     let preferredLanguage = '';
     let personaPrompt = '';
     let isSafeMode = false;

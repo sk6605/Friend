@@ -187,7 +187,7 @@ export default function SubscriptionPage() {
         {/* Hero */}
         <div className="text-center mb-10">
           <h2 className="text-3xl sm:text-4xl font-bold mb-3">
-            Unlock the Full Power of <span className="text-purple-400">Friend AI</span>
+            Unlock the Full Power of <span className="text-purple-400">Lumi</span>
           </h2>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
             Choose a plan that fits your needs. Upgrade anytime for a better experience.

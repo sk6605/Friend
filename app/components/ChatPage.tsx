@@ -381,11 +381,11 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     const lines = messages
       .filter((m: Message) => m.content.trim())
       .map((m: Message) => {
-        const sender = m.role === 'user' ? (nickname || 'You') : (aiName || 'Friend AI');
+        const sender = m.role === 'user' ? (nickname || 'You') : (aiName || 'Lumi');
         const time = m.createdAt ? ` [${new Date(m.createdAt).toLocaleString()}]` : '';
         return `${sender}${time}:\n${m.content}`;
       });
-    const text = `Chat Export — ${aiName || 'Friend AI'}\n${'='.repeat(40)}\n\n${lines.join('\n\n')}`;
+    const text = `Chat Export — ${aiName || 'Lumi'}\n${'='.repeat(40)}\n\n${lines.join('\n\n')}`;
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

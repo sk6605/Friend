@@ -8,6 +8,7 @@ interface UserInfo {
   aiName: string;
   language: string;
   profilePicture: string | null;
+  persona?: string;
 }
 
 export function useUserInfo(userId: string | null) {
@@ -20,7 +21,7 @@ export function useUserInfo(userId: string | null) {
       .then(data => {
         if (data) setUserInfo(data);
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {

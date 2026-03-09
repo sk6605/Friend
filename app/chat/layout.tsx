@@ -33,6 +33,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
         aiName={userInfo?.aiName}
         profilePicture={userInfo?.profilePicture}
         nickname={userInfo?.nickname}
+        persona={userInfo?.persona}
         onLogout={() => {
           logout();
           window.location.href = '/';

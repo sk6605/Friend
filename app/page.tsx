@@ -73,6 +73,7 @@ export default function Home() {
           aiName={userInfo?.aiName}
           profilePicture={userInfo?.profilePicture}
           nickname={userInfo?.nickname}
+          persona={userInfo?.persona}
           onLogout={() => {
             logout();
             window.location.href = '/';

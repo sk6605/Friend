@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Friend AI",
+  title: "Lumi",
   description: "Your personal AI companion",
 };
 

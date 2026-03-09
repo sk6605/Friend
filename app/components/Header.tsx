@@ -39,7 +39,7 @@ export default function ChatHeader({
 
       {/* Status */}
       <span className="text-sm font-medium text-purple-600/80 dark:text-purple-400/90">
-        {aiName || 'Friend AI'}
+        {aiName || 'Lumi'}
       </span>
 
       {/* Streak */}

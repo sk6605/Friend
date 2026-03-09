@@ -35,7 +35,7 @@ export async function POST(req: Request) {
         age: data.age ?? null,
         ageGroup: data.ageGroup || 'adult',
         language: data.language || 'en',
-        aiName: data.aiName || 'Friend AI',
+        aiName: data.aiName || 'Lumi',
         profile: data.interests
           ? JSON.stringify({ interests: data.interests })
           : undefined,

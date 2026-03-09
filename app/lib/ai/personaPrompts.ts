@@ -19,9 +19,9 @@ export interface PersonaDefinition {
 const personas: Record<PersonaKey, PersonaDefinition> = {
     default: {
         key: 'default',
-        name: 'Balanced Friend',
+        name: 'Balanced Lumi',
         emoji: '😊',
-        description: 'Warm, supportive, and naturally funny — the classic Friend AI.',
+        description: 'Warm, supportive, and naturally funny — the classic Lumi.',
         previewQuote: '"Hey! How\'s your day going? Tell me everything 😄✨"',
         prompt: '', // No overlay — uses baseSystemPrompt as-is
     },

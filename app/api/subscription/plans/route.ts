@@ -30,7 +30,7 @@ export async function GET() {
             priorityResponse: false,
             customAiPersonality: false,
             advancedAnalytics: false,
-            description: 'Get started with Friend AI',
+            description: 'Get started with Lumi',
             features: JSON.stringify([
               '20 messages per day',
               '2 file uploads per message (10MB)',

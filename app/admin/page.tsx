@@ -395,7 +395,7 @@ export default function AdminDashboard() {
             <div className="text-center mb-6">
               <div className="text-2xl mb-2">&#128202;</div>
               <h1 className="text-xl font-bold text-white">Admin Dashboard</h1>
-              <p className="text-slate-500 text-sm mt-1">Friend AI Analytics</p>
+              <p className="text-slate-500 text-sm mt-1">Lumi Analytics</p>
             </div>
             <input
               type="password"
@@ -439,7 +439,7 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-purple-400 text-xl">&#128202;</span>
-            <h1 className="text-lg font-bold">Friend AI — Admin</h1>
+            <h1 className="text-lg font-bold">Lumi — Admin</h1>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-slate-500 text-xs hidden sm:block">

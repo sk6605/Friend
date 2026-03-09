@@ -97,7 +97,7 @@ export async function runProactiveCare(): Promise<{ sentCount: number; totalChec
         messages: [
           {
             role: 'system',
-            content: `You are "${user.aiName || 'Friend AI'}", a caring AI companion.
+            content: `You are "${user.aiName || 'Lumi'}", a caring AI companion.
 Your personality: ${persona.name} — ${persona.description}
 
 Generate a SHORT, warm push notification message (max 120 characters) to check in on the user.
@@ -130,13 +130,13 @@ Recent emotional state: ${latestInsight?.emotionalState || 'unknown'}`,
         data: {
           userId: user.id,
           type: 'proactive_care',
-          title: user.aiName || 'Friend AI',
+          title: user.aiName || 'Lumi',
           message,
         },
       });
 
       try {
-        await sendPushNotification([user.id], user.aiName || 'Friend AI', message, '/chat');
+        await sendPushNotification([user.id], user.aiName || 'Lumi', message, '/chat');
       } catch (pushErr) {
         console.warn(`Push failed for user ${user.id}:`, pushErr);
       }

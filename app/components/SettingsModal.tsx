@@ -494,7 +494,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                 <div>
                   <div className="font-medium">AI Personality</div>
                   <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
-                    Currently: {PERSONAS.find(p => p.key === currentPersona)?.name || 'Balanced Friend'}
+                    Currently: {PERSONAS.find(p => p.key === currentPersona)?.name || 'Balanced Lumi'}
                   </div>
                 </div>
                 <svg className="w-4 h-4 text-neutral-300 dark:text-neutral-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">

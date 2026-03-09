@@ -96,14 +96,14 @@ const t = {
       chill: 'Yo 😎 What\'s up, no pressure.',
     },
     personaNames: {
-      default: 'Balanced Friend',
+      default: 'Balanced Lumi',
       gentle: 'Gentle Soul',
       witty: 'Witty Buddy',
       mentor: 'Wise Mentor',
       chill: 'Chill Companion',
     },
     personaDescs: {
-      default: 'Warm, supportive, and naturally funny — the classic Friend AI.',
+      default: 'Warm, supportive, and naturally funny — the classic Lumi.',
       gentle: 'Like a caring big sister — soft-spoken, nurturing, always patient.',
       witty: 'Your funniest friend — quick-witted, playful, never boring.',
       mentor: 'A thoughtful coach — asks the right questions, pushes you to grow.',

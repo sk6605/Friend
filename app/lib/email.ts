@@ -42,10 +42,10 @@ export async function sendOtpEmail(email: string, code: string) {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: email,
-      subject: 'Friend AI - Your Login Code',
+      subject: 'Lumi - Your Login Code',
       html: `
         <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 32px; text-align: center;">
-          <h2 style="color: #2F3441;">Friend AI</h2>
+          <h2 style="color: #2F3441;">Lumi</h2>
           <p style="color: #666; font-size: 14px;">Your verification code is:</p>
           <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #7C3AED; margin: 24px 0;">${code}</div>
           <p style="color: #999; font-size: 12px;">This code expires in 5 minutes.</p>
