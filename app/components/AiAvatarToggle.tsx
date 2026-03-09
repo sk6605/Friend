@@ -161,25 +161,7 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                         </AnimatePresence>
                     </motion.g>
 
-                    {/* 睡眠鼻涕泡 (仅在暗色模式下显示) */}
-                    <AnimatePresence>
-                        {isDark && (
-                            <motion.circle
-                                cx="45" cy="55" r="8"
-                                fill="none"
-                                stroke={currentStyle.eyeStroke}
-                                strokeWidth="2"
-                                style={{ transformOrigin: "45px 55px" }}
-                                initial={{ scale: 0, opacity: 0 }}
-                                animate={{
-                                    scale: [0.8, 1.4, 0.8],
-                                    opacity: [0.4, 0.8, 0.4]
-                                }}
-                                exit={{ scale: 0, opacity: 0, transition: { duration: 0.2 } }}
-                                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                            />
-                        )}
-                    </AnimatePresence>
+
                 </svg>
 
                 {/* 熟睡的 Zzz 粒子效果 */}
