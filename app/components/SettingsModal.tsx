@@ -175,6 +175,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
 
       setCurrentPersona(selectedPersona);
       setSuccess('Personality updated! Your AI will now respond with this style.');
+      onProfileUpdate?.(); // Trigger user info refresh so avatar changes immediately
       setTimeout(() => {
         setView('menu');
         setSuccess('');

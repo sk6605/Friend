@@ -170,13 +170,12 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                                 exit={{ y: -30, opacity: 0, transition: { duration: 0.2 } }}
                                 transition={{ type: "spring", stiffness: 100, damping: 15, delay: 0.1 }}
                             >
-                                {/* 眼罩带子 */}
+                                {/* 偏戴眼罩带子 */}
                                 <path d="M 5 50 Q 50 40 95 50" stroke="#1E1B4B" strokeWidth="3" fill="transparent" />
-                                {/* 眼罩主体 */}
-                                <rect x="20" y="38" width="60" height="24" rx="12" fill="#312E81" />
-                                {/* 眼罩上的可爱装饰，比如小小闭眼符号 */}
-                                <path d="M 35 50 Q 40 54 45 50" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" fill="transparent" />
-                                <path d="M 55 50 Q 60 54 65 50" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" fill="transparent" />
+                                {/* 偏戴眼罩主体 (只遮左眼) */}
+                                <rect x="20" y="38" width="32" height="24" rx="12" fill="#312E81" />
+                                {/* 眼罩上的可爱装饰，小小闭眼符号 */}
+                                <path d="M 30 50 Q 36 54 42 50" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" fill="transparent" />
                             </motion.g>
                         )}
                     </AnimatePresence>
@@ -197,10 +196,6 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                 </AnimatePresence>
             </motion.div>
 
-            {/* 沉浸式提示文本 */}
-            <p className="mt-2 text-xs font-medium text-zinc-500 transition-colors group-hover:text-zinc-800 dark:text-zinc-400 dark:group-hover:text-zinc-200">
-                {isDark ? '休息中...' : '陪伴中...'}
-            </p>
         </div>
     );
 }
