@@ -110,13 +110,11 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                         {/* 右眼 */}
                         <motion.path
                             animate={{
-                                d: isDark && personaStyle.light.accessory === 'chillEyes'
-                                    ? "M 60 48 Q 66 46 72 48" // 暗色模式保持慵懒半闭眼
-                                    : isDark
-                                        ? "M 68 45 A 4 4 0 1 1 68 45.01" // 暗色模式右眼保持睁开 (配合眼罩)
-                                        : personaStyle.light.accessory === 'chillEyes'
-                                            ? "M 60 48 Q 66 46 72 48"
-                                            : "M 68 45 A 4 4 0 1 1 68 45.01",
+                                d: isDark
+                                    ? "M 60 50 Q 65 55 70 50" // 暗色模式两只眼睛都闭上
+                                    : personaStyle.light.accessory === 'chillEyes'
+                                        ? "M 60 48 Q 66 46 72 48"
+                                        : "M 68 45 A 4 4 0 1 1 68 45.01",
                                 stroke: currentStyle.eyeStroke,
                                 strokeWidth: isDark ? 4 : (personaStyle.light.accessory === 'chillEyes' ? 5 : 8),
                                 strokeLinecap: "round"
@@ -163,23 +161,23 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                         </AnimatePresence>
                     </motion.g>
 
-                    {/* 睡眠眼罩 (仅在暗色模式下戴上) */}
+                    {/* 睡眠鼻涕泡 (仅在暗色模式下显示) */}
                     <AnimatePresence>
                         {isDark && (
-                            <motion.g
-                                initial={{ y: -30, opacity: 0 }}
-                                style={{ transformOrigin: "36px 50px" }}
-                                animate={{ y: 0, opacity: 1, rotate: -15 }} // 像海盗眼罩一样斜着戴
-                                exit={{ y: -30, opacity: 0, rotate: 0, transition: { duration: 0.2 } }}
-                                transition={{ type: "spring", stiffness: 100, damping: 15, delay: 0.1 }}
-                            >
-                                {/* 偏戴眼罩带子 (穿过额头和脸颊) */}
-                                <path d="M 5 40 Q 50 50 95 60" stroke="#1E1B4B" strokeWidth="3" fill="transparent" />
-                                {/* 偏戴眼罩主体 (遮左眼) */}
-                                <rect x="18" y="38" width="36" height="26" rx="13" fill="#312E81" />
-                                {/* 眼罩上的可爱装饰，小小闭眼符号 */}
-                                <path d="M 28 50 Q 36 54 44 50" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" fill="transparent" />
-                            </motion.g>
+                            <motion.circle
+                                cx="45" cy="55" r="8"
+                                fill="none"
+                                stroke={currentStyle.eyeStroke}
+                                strokeWidth="2"
+                                style={{ transformOrigin: "45px 55px" }}
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{
+                                    scale: [0.8, 1.4, 0.8],
+                                    opacity: [0.4, 0.8, 0.4]
+                                }}
+                                exit={{ scale: 0, opacity: 0, transition: { duration: 0.2 } }}
+                                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                            />
                         )}
                     </AnimatePresence>
                 </svg>
