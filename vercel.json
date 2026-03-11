@@ -6,7 +6,7 @@
         },
         {
             "path": "/api/cron/morning-alert?key=kai0509.",
-            "schedule": "*/15 * * * *"
+            "schedule": "0 23 * * *"
         }
     ]
 }

@@ -111,19 +111,12 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
 
         const { list: forecastList, timezone } = forecastData;
 
-        // Calculate user's current local time
-        // timezone is given in seconds from UTC.
+        // Calculate user's current local time to define "Today"
         const userLocalTimeMs = Date.now() + timezone * 1000;
 
-        // Check if NOW is the right time to notify this user
-        const { hour, minute } = getNotifyTime(user.departureTime);
-        if (!isInNotifyWindow(userLocalTimeMs, hour, minute)) continue;
-
         // Skip if already alerted today (based on user's timezone)
-        // To be precise, we get the start of the user's current day in UTC.
         const userDate = new Date(userLocalTimeMs);
         userDate.setUTCHours(0, 0, 0, 0);
-        // Convert back to true UTC
         const todayStartUTC = new Date(userDate.getTime() - timezone * 1000);
 
         const existing = await prisma.notification.findFirst({
@@ -179,7 +172,7 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
         }
 
         alertCount++;
-        console.log(`Morning alert sent to ${user.nickname} (${user.id}) at ${hour}:${String(minute).padStart(2, '0')} (local) — city: ${user.city}`);
+        console.log(`Morning alert sent to ${user.nickname} (${user.id}) — city: ${user.city}`);
     }
 
     return { alertsSent: alertCount, usersChecked: users.length };
