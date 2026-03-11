@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
           const activeCrisisForConv = await prisma.crisisEvent.findFirst({
             where: {
               userId,
-              conversationId,
+              conversationId: conversation.id,
               riskLevel: { gte: 2 },
               status: { in: ['open', 'escalated', 'acknowledged', 'intervening'] },
             },
@@ -418,7 +418,7 @@ Ask the user which city they'd like weather for, and mention you can remember it
       if (assessment.riskLevel >= 2) {
         // HIGH RISK or IMMINENT DANGER — activate SAFE_MODE
         const eventId = await recordCrisisEvent(
-          userId, null, conversationId,
+          userId, null, conversation.id,
           assessment.riskLevel, userText,
           assessment.reason, assessment.matchedKeywords,
         );
@@ -450,7 +450,7 @@ Ask the user which city they'd like weather for, and mention you can remember it
       } else if (assessment.riskLevel === 1) {
         // EMOTIONAL DISTRESS — log for monitoring, continue normal flow
         recordCrisisEvent(
-          userId, null, conversationId,
+          userId, null, conversation.id,
           1, userText, assessment.reason, assessment.matchedKeywords,
         ).catch((err) => console.error('Crisis event logging failed:', err));
       }
@@ -491,7 +491,7 @@ Ask the user which city they'd like weather for, and mention you can remember it
           // Post-stream processing
           try {
             await prisma.conversation.update({
-              where: { id: conversationId },
+              where: { id: conversation.id },
               data: { messageCount },
             });
 
@@ -508,7 +508,7 @@ Ask the user which city they'd like weather for, and mention you can remember it
                 if (firstUserMsg) {
                   const title = await generateTitle(firstUserMsg.content);
                   await prisma.conversation.update({
-                    where: { id: conversationId },
+                    where: { id: conversation.id },
                     data: { title },
                   });
                 }
@@ -518,7 +518,7 @@ Ask the user which city they'd like weather for, and mention you can remember it
                 const summary = await generateSummary(allMsgs);
                 const title = await generateTitle(summary);
                 await prisma.conversation.update({
-                  where: { id: conversationId },
+                  where: { id: conversation.id },
                   data: {
                     summary,
                     title,
