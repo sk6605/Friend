@@ -56,11 +56,11 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                 className="relative w-16 h-16 flex items-center justify-center"
                 // 赋予小球持续的上下悬浮“呼吸感”
                 animate={{
-                    y: isDark ? [0, -2, 0] : [0, -6, 0], // 睡觉时悬浮幅度变小 
-                    scale: isHovered && !isDark ? 1.05 : 1 // hover 时轻飘放大
+                    y: [0, -6, 0], // 保持活力悬浮 
+                    scale: isHovered ? 1.05 : 1 // hover 时轻飘放大 (暗色模式也保留放大的效果)
                 }}
                 transition={{
-                    duration: isDark ? 4 : 3, // 睡觉时呼吸变慢
+                    duration: 3, // 保持活力的呼吸速率
                     repeat: Infinity,
                     ease: "easeInOut"
                 }}
@@ -70,9 +70,9 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                     className="absolute inset-0 rounded-full blur-md"
                     animate={{
                         backgroundColor: currentStyle.glow,
-                        scale: isDark ? [1, 1.1, 1] : [1, 1.2, 1],
+                        scale: [1, 1.2, 1],
                     }}
-                    transition={{ duration: isDark ? 4 : 2, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 />
 
                 {/* AI 本体 (SVG) */}
@@ -89,19 +89,17 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                     {/* 眼睛组 */}
                     <motion.g
                         animate={{
-                            y: isHovered && !isDark ? -2 : 0 // Hover时抬头看你
+                            y: isHovered ? -2 : 0 // Hover时抬头看你
                         }}
                     >
                         {/* 左眼/脸颊/配件组合 */}
                         <motion.path
                             animate={{
-                                d: isDark
-                                    ? "M 30 50 Q 35 55 40 50"
-                                    : personaStyle.light.accessory === 'chillEyes'
-                                        ? "M 28 48 Q 34 46 40 48" // 慵懒半闭眼
-                                        : "M 32 45 A 4 4 0 1 1 32 45.01",
+                                d: personaStyle.light.accessory === 'chillEyes'
+                                    ? "M 28 48 Q 34 46 40 48" // 慵懒半闭眼
+                                    : "M 32 45 A 4 4 0 1 1 32 45.01",
                                 stroke: currentStyle.eyeStroke,
-                                strokeWidth: isDark ? 4 : (personaStyle.light.accessory === 'chillEyes' ? 5 : 8),
+                                strokeWidth: personaStyle.light.accessory === 'chillEyes' ? 5 : 8,
                                 strokeLinecap: "round"
                             }}
                             fill="transparent"
@@ -110,13 +108,11 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                         {/* 右眼 */}
                         <motion.path
                             animate={{
-                                d: isDark
-                                    ? "M 60 50 Q 65 55 70 50" // 暗色模式两只眼睛都闭上
-                                    : personaStyle.light.accessory === 'chillEyes'
-                                        ? "M 60 48 Q 66 46 72 48"
-                                        : "M 68 45 A 4 4 0 1 1 68 45.01",
+                                d: personaStyle.light.accessory === 'chillEyes'
+                                    ? "M 60 48 Q 66 46 72 48"
+                                    : "M 68 45 A 4 4 0 1 1 68 45.01",
                                 stroke: currentStyle.eyeStroke,
-                                strokeWidth: isDark ? 4 : (personaStyle.light.accessory === 'chillEyes' ? 5 : 8),
+                                strokeWidth: personaStyle.light.accessory === 'chillEyes' ? 5 : 8,
                                 strokeLinecap: "round"
                             }}
                             fill="transparent"
@@ -164,19 +160,7 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
 
                 </svg>
 
-                {/* 熟睡的 Zzz 粒子效果 */}
-                <AnimatePresence>
-                    {isDark && (
-                        <motion.div
-                            className="absolute -top-4 -right-2 text-indigo-300 font-bold text-sm"
-                            initial={{ opacity: 0, y: 10, scale: 0.5 }}
-                            animate={{ opacity: [0, 1, 0], y: -20, scale: 1.2, x: 10 }}
-                            transition={{ duration: 3, repeat: Infinity, ease: "easeOut", delay: 1 }}
-                        >
-                            Z
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {/* 熟睡的 Zzz 粒子效果 (已被移除) */}
             </motion.div>
 
         </div>
