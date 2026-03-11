@@ -18,7 +18,7 @@ export async function register() {
   const { runDailySummary } = await import('@/app/lib/cron/runDailySummary');
   const { runGrowthCheck } = await import('@/app/lib/cron/runGrowthCheck');
   const { runProactiveCare } = await import('@/app/lib/cron/runProactiveCare');
-  const { runRainAlert } = await import('@/app/lib/cron/runRainAlert');
+  const { runDailyMorningAlert } = await import('@/app/lib/cron/runDailyMorningAlert');
 
 
   // Daily insights — every day at 12:00 PM
@@ -54,17 +54,17 @@ export async function register() {
     }
   });
 
-  // Rain alert — every 15 minutes (per-user timing: 30 min before departure, default 07:30)
+  // Morning alert — every 15 minutes (per-user timing: 15 min before departure, default 07:00)
   cron.schedule('*/15 * * * *', async () => {
     try {
-      const r = await runRainAlert();
+      const r = await runDailyMorningAlert();
       if (r.alertsSent > 0) {
-        console.log(`[Cron] rain-alert — ${r.alertsSent} alerts / ${r.usersChecked} users`);
+        console.log(`[Cron] morning-alert — ${r.alertsSent} alerts / ${r.usersChecked} users`);
       }
     } catch (err) {
-      console.error('[Cron] rain-alert failed:', err);
+      console.error('[Cron] morning-alert failed:', err);
     }
   });
 
-  console.log('[Cron] All jobs registered: daily-summary(12:00), growth-check(Sun 00:00), proactive-care(*/6h), rain-alert(08:00)');
+  console.log('[Cron] All jobs registered: daily-summary(12:00), growth-check(Sun 00:00), proactive-care(*/6h), morning-alert');
 }

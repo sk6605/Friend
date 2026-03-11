@@ -5,8 +5,8 @@
             "schedule": "0 1 * * *"
         },
         {
-            "path": "/api/cron/rain-alert?key=kai0509.",
-            "schedule": "30 23 * * *"
+            "path": "/api/cron/morning-alert?key=kai0509.",
+            "schedule": "*/15 * * * *"
         }
     ]
 }

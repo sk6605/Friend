@@ -163,7 +163,7 @@ export interface RainForecast {
   city: string;
 }
 
-export async function fetchForecast(city: string): Promise<ForecastEntry[] | null> {
+export async function fetchForecast(city: string): Promise<{ list: ForecastEntry[], timezone: number } | null> {
   const apiKey = process.env.WEATHER_API_KEY;
   if (!apiKey) return null;
 
@@ -172,7 +172,10 @@ export async function fetchForecast(city: string): Promise<ForecastEntry[] | nul
     const res = await fetch(url, { next: { revalidate: 1800 } }); // cache 30 min
     if (!res.ok) return null;
     const data = await res.json();
-    return data.list || null;
+    return {
+      list: data.list || [],
+      timezone: data.city?.timezone || 0
+    };
   } catch (err) {
     console.error('Forecast fetch failed:', err);
     return null;
