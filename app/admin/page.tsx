@@ -1199,7 +1199,7 @@ export default function AdminDashboard() {
                                   Ack
                                 </button>
                               )}
-                              {(evt.status === 'open' || evt.status === 'acknowledged') && (
+                              {(evt.status === 'open' || evt.status === 'acknowledged' || evt.status === 'intervening') && (
                                 <button
                                   onClick={() => handleCrisisAction('updateEvent', { eventId: evt.id, status: 'resolved' })}
                                   className="px-2 py-1 rounded text-xs bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
