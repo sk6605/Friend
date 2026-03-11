@@ -159,8 +159,6 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
 
 
                 </svg>
-
-                {/* 熟睡的 Zzz 粒子效果 (已被移除) */}
             </motion.div>
 
         </div>

@@ -1,8 +1,8 @@
 {
     "crons": [
         {
-            "path": "/api/cron/proactive-care?key=kai0509.",
-            "schedule": "0 1 * * *"
+            "path": "/api/cron/daily-analysis?key=kai0509.",
+            "schedule": "0 16 * * *"
         },
         {
             "path": "/api/cron/morning-alert?key=kai0509.",
