@@ -17,7 +17,7 @@ export async function register() {
   const cron = await import('node-cron');
   const { runDailySummary } = await import('@/app/lib/cron/runDailySummary');
   const { runGrowthCheck } = await import('@/app/lib/cron/runGrowthCheck');
-  const { runProactiveCare } = await import('@/app/lib/cron/runProactiveCare');
+  const { runDailyAnalysis } = await import('@/app/lib/cron/runDailyAnalysis');
   const { runDailyMorningAlert } = await import('@/app/lib/cron/runDailyMorningAlert');
 
 
@@ -43,14 +43,14 @@ export async function register() {
     }
   });
 
-  // Proactive care — every 6 hours
-  cron.schedule('0 */6 * * *', async () => {
-    console.log('[Cron] Running proactive-care...');
+  // Daily Analysis — every day at 12:00 AM MYT (16:00 UTC)
+  cron.schedule('0 16 * * *', async () => {
+    console.log('[Cron] Running daily-analysis...');
     try {
-      const r = await runProactiveCare();
-      console.log(`[Cron] proactive-care done — sent ${r.sentCount}/${r.totalChecked} users`);
+      const r = await runDailyAnalysis();
+      console.log(`[Cron] daily-analysis done — processed ${r.processedUsers}/${r.totalUsers} users`);
     } catch (err) {
-      console.error('[Cron] proactive-care failed:', err);
+      console.error('[Cron] daily-analysis failed:', err);
     }
   });
 

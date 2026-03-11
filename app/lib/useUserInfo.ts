@@ -9,6 +9,11 @@ interface UserInfo {
   language: string;
   profilePicture: string | null;
   persona?: string;
+  subscription?: {
+    plan?: {
+      name: string;
+    }
+  } | null;
 }
 
 export function useUserInfo(userId: string | null) {
