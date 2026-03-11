@@ -69,10 +69,20 @@ export function useVoice(lang?: string) {
     const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const startTimeRef = useRef<number>(0);
-    const langRef = useRef<string>(LANG_MAP[lang ?? ''] ?? lang ?? 'en-US');
+    
+    // Default to browser language if available, else 'en-US'
+    const getFallbackLang = () => {
+        if (typeof window !== 'undefined' && window.navigator && window.navigator.language) {
+            return window.navigator.language;
+        }
+        return 'en-US';
+    };
+    
+    const defaultLang = getFallbackLang();
+    const langRef = useRef<string>(LANG_MAP[lang ?? ''] ?? lang ?? defaultLang);
 
     // Keep langRef in sync with prop
-    langRef.current = LANG_MAP[lang ?? ''] ?? lang ?? 'en-US';
+    langRef.current = LANG_MAP[lang ?? ''] ?? lang ?? defaultLang;
 
     // Clear all timers
     const clearAllTimers = useCallback(() => {
@@ -91,7 +101,7 @@ export function useVoice(lang?: string) {
                 const recognition = new SpeechRecognition();
                 recognition.continuous = true;
                 recognition.interimResults = true;
-                recognition.lang = 'en-US';
+                recognition.lang = langRef.current;
 
                 recognition.onresult = (event: SpeechRecognitionEvent) => {
                     let finalTranscript = '';
@@ -169,6 +179,9 @@ export function useVoice(lang?: string) {
         }
 
         try {
+            // Update speech recognition language to the most current one before starting
+            recognitionRef.current.lang = langRef.current;
+
             // Check secure context
             if (!window.isSecureContext) {
                 setError("Microphone requires HTTPS. Please access the app via https:// or localhost.");

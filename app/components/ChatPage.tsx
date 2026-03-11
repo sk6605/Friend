@@ -102,7 +102,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
   const [moodchoose, setMoodchoose] = useState(false);
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [streak, setStreak] = useState(0);
-  const { isListening, isSpeaking, transcript, error: voiceError, startListening, stopListening, speak, cancelSpeech, resetTranscript, timeRemaining, maxDuration } = useVoice();
+  const { isListening, isSpeaking, transcript, error: voiceError, startListening, stopListening, speak, cancelSpeech, resetTranscript, timeRemaining, maxDuration } = useVoice(language);
   const prevListeningRef = useRef(isListening);
 
   const { hasSafeMode, triggerSafeMode, syncSafeModeConversations } = useSafeMode();
