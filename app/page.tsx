@@ -8,6 +8,7 @@ import SettingsModal from "./components/SettingsModal";
 import { getUserId, setUserId, logout } from "./utils/auth";
 import { useUserInfo } from "./lib/useUserInfo";
 import { useNotifications } from "./hooks/useNotifications";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 import NotificationToast from "./components/NotificationToast";
 
 /**
@@ -27,6 +28,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { userInfo, refetch: refetchUser } = useUserInfo(userId);
   const { notifications, dismissNotification, markRead } = useNotifications(userId);
+  usePushNotifications(userId || '');
 
   useEffect(() => {
     setUid(getUserId());

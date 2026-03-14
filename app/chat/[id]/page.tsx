@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ChatPage from '@/app/components/ChatPage';
 import { getUserId } from '@/app/utils/auth';
 import { useUserInfo } from '@/app/lib/useUserInfo';
+import { useSidebarContext } from '../SidebarContext';
 
 export default function Page({
   params,
@@ -17,6 +18,7 @@ export default function Page({
   const [userId, setUserId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const { userInfo } = useUserInfo(userId);
+  const { openSidebar } = useSidebarContext();
 
   const highlightMessageId = searchParams.get('highlight') || undefined;
   const searchQuery = searchParams.get('q') || undefined;
@@ -41,6 +43,7 @@ export default function Page({
       language={userInfo?.language}
       profilePicture={userInfo?.profilePicture}
       nickname={userInfo?.nickname}
+      onOpenSidebar={openSidebar}
       highlightMessageId={highlightMessageId}
       searchQuery={searchQuery}
     />
