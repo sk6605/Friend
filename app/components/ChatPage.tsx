@@ -395,7 +395,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     URL.revokeObjectURL(url);
   };
   return (
-    <div className="flex w-full h-full bg-white/40 dark:bg-[#13111c]/50 backdrop-blur-2xl relative overflow-hidden">
+    <div className="flex w-full h-full bg-white/40 dark:bg-[#13111c]/50 backdrop-blur-2xl relative overflow-hidden safe-top safe-bottom">
 
       {/* Main Chat Area (Center) */}
       <section className="flex-1 flex flex-col min-w-0 relative h-full">
@@ -464,7 +464,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
         </div>
 
         {/* Input Area */}
-        <div className="w-full border-t border-purple-100/30 dark:border-purple-800/15 bg-white/30 dark:bg-[#13111c]/40 backdrop-blur-2xl">
+        <div className="w-full border-t border-purple-100/30 dark:border-purple-800/15 bg-white/30 dark:bg-[#13111c]/40 backdrop-blur-2xl safe-bottom">
           <div className="max-w-3xl mx-auto">
             <ChatInput onSendMessage={handleSendMessage} isLoading={isStreaming} onStartVoice={startListening} />
           </div>
