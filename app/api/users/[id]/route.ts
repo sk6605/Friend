@@ -32,6 +32,7 @@ export async function GET(
         city: true,
         departureTime: true,
         dataControl: true,
+        pushSubscription: true,
         persona: true,
         subscription: {
           include: {
