@@ -196,7 +196,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
         h-full overflow-hidden flex flex-col
       ">
         {/* Header */}
-        <div className="p-4 border-b border-purple-100/30 dark:border-purple-800/15">
+        <div className="p-4 border-b border-purple-100/30 dark:border-purple-800/15 safe-top">
           <div className="flex items-center justify-between mb-4 px-1">
             <div className="flex items-center gap-2">
               {profilePicture ? (
@@ -373,7 +373,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
         </div>
 
         {/* Footer */}
-        <div className="border-t border-purple-100/30 dark:border-purple-800/15 p-3 space-y-2 bg-white/30 dark:bg-transparent">
+        <div className="border-t border-purple-100/30 dark:border-purple-800/15 p-3 space-y-2 bg-white/30 dark:bg-transparent safe-bottom">
           <Link
             href="/subscription"
             onClick={() => onNavigate?.()}
