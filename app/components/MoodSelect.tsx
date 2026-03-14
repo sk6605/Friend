@@ -18,6 +18,21 @@ function getLabel(lang: string | undefined, key: string): string {
   return moodLabels[l][key] || moodLabels['en'][key];
 }
 
+// ─── Localized mood message templates ───
+const moodTemplates: Record<string, string> = {
+  en: 'My mood today: ',
+  zh: '我今天的心情：',
+  es: 'Mi estado de ánimo hoy: ',
+  ja: '今日の気分：',
+  ko: '오늘의 기분: ',
+  ms: 'Mood saya hari ini: ',
+};
+
+export function getMoodMessage(lang: string | undefined, moodKey: string): string {
+  const l = lang && moodTemplates[lang] ? lang : 'en';
+  return `${moodTemplates[l]}${getLabel(lang, moodKey)}`;
+}
+
 const moods = [
   { key: 'happy', emoji: '😊', color: 'bg-amber-100/60 dark:bg-amber-900/25 border-amber-300/50 dark:border-amber-600/30 hover:bg-amber-200/70 dark:hover:bg-amber-800/30 text-amber-700 dark:text-amber-300' },
   { key: 'sad', emoji: '😔', color: 'bg-blue-100/60 dark:bg-blue-900/25 border-blue-300/50 dark:border-blue-600/30 hover:bg-blue-200/70 dark:hover:bg-blue-800/30 text-blue-700 dark:text-blue-300' },

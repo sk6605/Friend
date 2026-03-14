@@ -7,7 +7,7 @@ import ChatHeader from '@/app/components/Header';
 
 
 import { useConversations } from '@/app/context/ConversationContext';
-import MoodSelector from '@/app/components/MoodSelect';
+import MoodSelector, { getMoodMessage } from '@/app/components/MoodSelect';
 import { useVoice } from '@/app/hooks/useVoice';
 import VoiceVisualizer from '@/app/components/VoiceVisualizer';
 import DailyChallengeCard from '@/app/components/DailyChallengeCard';
@@ -442,7 +442,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
                       language={language}
                       onSelect={(mood) => {
                         setMoodchoose(true);
-                        handleSendMessage(`My mood today: ${mood}`);
+                        handleSendMessage(getMoodMessage(language, mood));
                       }}
                     />
                   )}
