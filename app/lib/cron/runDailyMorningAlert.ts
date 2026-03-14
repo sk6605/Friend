@@ -143,10 +143,17 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
             nickname
         );
 
-        // Provide a simple title
-        const title = lang === 'zh'
-            ? (rainInfo.willRain ? `🌧️ 早安，${nickname}` : `☀️ 早安，${nickname}`)
-            : (rainInfo.willRain ? `🌧️ Good morning, ${nickname}` : `☀️ Good morning, ${nickname}`);
+        // Provide a localized title
+        const morningTitles: Record<string, { rain: string; sun: string }> = {
+            en: { rain: `🌧️ Good morning, ${nickname}`, sun: `☀️ Good morning, ${nickname}` },
+            zh: { rain: `🌧️ 早安，${nickname}`, sun: `☀️ 早安，${nickname}` },
+            es: { rain: `🌧️ Buenos días, ${nickname}`, sun: `☀️ Buenos días, ${nickname}` },
+            ja: { rain: `🌧️ おはよう、${nickname}`, sun: `☀️ おはよう、${nickname}` },
+            ko: { rain: `🌧️ 좋은 아침, ${nickname}`, sun: `☀️ 좋은 아침, ${nickname}` },
+            ms: { rain: `🌧️ Selamat pagi, ${nickname}`, sun: `☀️ Selamat pagi, ${nickname}` },
+        };
+        const titleSet = morningTitles[lang] || morningTitles['en'];
+        const title = rainInfo.willRain ? titleSet.rain : titleSet.sun;
 
         // Save notification to DB
         await prisma.notification.create({

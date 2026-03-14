@@ -297,6 +297,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
             {
               role: 'assistant',
               content: getGreeting(language, 'newChat'),
+              id: 'greeting-new',
             },
           ]);
           return;
@@ -436,8 +437,9 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
               messages.map((msg, index) => (
                 <div key={index} id={msg.id ? `msg-${msg.id}` : undefined}>
                   <ChatBubble role={msg.role} content={msg.content} messageId={msg.id} createdAt={msg.createdAt} onDelete={handleDeleteMessage} profilePicture={profilePicture} nickname={nickname} isHighlighted={!!highlightId && msg.id === highlightId} />
-                  {msg.id === 'mood-selector' && !moodchoose && (
+                  {(msg.id === 'mood-selector' || msg.id === 'greeting-new') && !moodchoose && (
                     <MoodSelector
+                      language={language}
                       onSelect={(mood) => {
                         setMoodchoose(true);
                         handleSendMessage(`My mood today: ${mood}`);
