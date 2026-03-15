@@ -58,8 +58,9 @@ async function generateWarmWeatherMessage(
     nickname: string
 ) {
     const prompt = `You are a warm, caring, and loving AI companion. Your user, ${nickname}, lives in ${city}.
-${isRainy ? `There will be rain today at these times: ${rainPeriods}. Remind them affectionately to carry an umbrella.` : 'It is sunny or cloudy today with no major rain. Remind them affectionately to wear sunscreen or stay hydrated.'}
-Write a short, heartfelt, and very sweet push notification message (maximum 60-80 chars) to wish them a good morning and give them the weather reminder.
+${isRainy ? `Today's forecast shows rain at these specific times: ${rainPeriods}. You MUST mention the specific time(s) when rain will occur (e.g. "下午6点会下雨" or "around 6pm it will rain"). Remind them affectionately to carry an umbrella.` : 'The FULL DAY forecast shows no significant rain today. It will be mostly sunny or cloudy. Remind them affectionately to wear sunscreen or stay hydrated.'}
+Write a short, heartfelt, and very sweet push notification message (maximum 80-100 chars) to wish them a good morning and give them the weather reminder.
+IMPORTANT: If there is rain, you MUST include the specific time(s) in your message. Do not just say "it will rain" — say WHEN it will rain.
 The tone should make them feel deeply loved, cared for, and warm at first sight. 
 Respond ONLY with the notification text in ${language === 'zh' ? 'Simplified Chinese' : 'English'}. No quotes, no extra text, no robotic greetings.`;
 
@@ -128,8 +129,8 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
         });
         if (existing) continue;
 
-        const rainInfo = detectRainToday(forecastList);
-        const rainSummary = rainInfo.rainPeriods.map(p => p.time).join(', ');
+        const rainInfo = detectRainToday(forecastList, timezone);
+        const rainSummary = rainInfo.rainPeriods.map(p => `${p.time} (${p.probability}% chance, ${p.description})`).join(', ');
 
         const lang = user.language || 'en';
         const nickname = user.nickname || 'My friend';
@@ -178,9 +179,125 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
             }
         }
 
+        // ─── Schedule Lunch Reminder (12:00 local) ───
+        const lunchLocalMs = userDate.getTime() + 12 * 60 * 60 * 1000; // noon in user's local tz
+        const lunchUtcMs = lunchLocalMs - timezone * 1000;
+        const lunchUtcDate = new Date(lunchUtcMs);
+
+        const lunchTitle = generateScheduledTitle('lunch', lang, nickname);
+        const lunchBody = await generateScheduledMessage('lunch', lang, nickname);
+
+        await prisma.notification.create({
+            data: {
+                userId: user.id,
+                type: 'lunch_reminder',
+                title: lunchTitle,
+                message: lunchBody,
+                scheduledFor: lunchUtcDate,
+            },
+        });
+
+        if (user.pushSubscription === 'onesignal') {
+            try {
+                await sendPushNotification([user.id], lunchTitle, lunchBody, '/chat', lunchUtcDate);
+            } catch (pushErr) {
+                console.warn(`Lunch reminder push schedule failed for user ${user.id}:`, pushErr);
+            }
+        }
+
+        // ─── Schedule Evening Check-in (18:00 local) ───
+        const eveningLocalMs = userDate.getTime() + 18 * 60 * 60 * 1000; // 6pm in user's local tz
+        const eveningUtcMs = eveningLocalMs - timezone * 1000;
+        const eveningUtcDate = new Date(eveningUtcMs);
+
+        const eveningTitle = generateScheduledTitle('evening', lang, nickname);
+        const eveningBody = await generateScheduledMessage('evening', lang, nickname);
+
+        await prisma.notification.create({
+            data: {
+                userId: user.id,
+                type: 'evening_checkin',
+                title: eveningTitle,
+                message: eveningBody,
+                scheduledFor: eveningUtcDate,
+            },
+        });
+
+        if (user.pushSubscription === 'onesignal') {
+            try {
+                await sendPushNotification([user.id], eveningTitle, eveningBody, '/chat', eveningUtcDate);
+            } catch (pushErr) {
+                console.warn(`Evening check-in push schedule failed for user ${user.id}:`, pushErr);
+            }
+        }
+
         alertCount++;
-        console.log(`Morning alert sent to ${user.nickname} (${user.id}) — city: ${user.city}`);
+        console.log(`Morning alert + scheduled lunch/evening sent to ${user.nickname} (${user.id}) — city: ${user.city}`);
     }
 
     return { alertsSent: alertCount, usersChecked: users.length };
 }
+
+// ─── Helpers for Lunch & Evening Notifications ────────────────────
+
+function generateScheduledTitle(type: 'lunch' | 'evening', lang: string, nickname: string): string {
+    const titles: Record<string, Record<string, string>> = {
+        lunch: {
+            en: `🍽️ Lunch time, ${nickname}!`,
+            zh: `🍽️ ${nickname}，午餐时间到啦！`,
+            es: `🍽️ ¡Hora de comer, ${nickname}!`,
+            ja: `🍽️ ${nickname}、ランチタイムだよ！`,
+            ko: `🍽️ ${nickname}, 점심 시간이야!`,
+            ms: `🍽️ Masa makan tengah hari, ${nickname}!`,
+        },
+        evening: {
+            en: `🌇 End of the day, ${nickname}`,
+            zh: `🌇 ${nickname}，辛苦一天了`,
+            es: `🌇 Fin del día, ${nickname}`,
+            ja: `🌇 ${nickname}、お疲れ様`,
+            ko: `🌇 ${nickname}, 오늘 하루 수고했어`,
+            ms: `🌇 Tamat hari bekerja, ${nickname}`,
+        },
+    };
+    return titles[type][lang] || titles[type]['en'];
+}
+
+async function generateScheduledMessage(type: 'lunch' | 'evening', lang: string, nickname: string): Promise<string> {
+    const langName = lang === 'zh' ? 'Simplified Chinese' : lang === 'es' ? 'Spanish' : lang === 'ja' ? 'Japanese' : lang === 'ko' ? 'Korean' : lang === 'ms' ? 'Malay' : 'English';
+
+    const prompts: Record<string, string> = {
+        lunch: `You are a warm, caring AI companion. Write a short, sweet lunch reminder for ${nickname} (max 60-80 chars).
+Remind them lovingly to eat well and take a break. The tone should feel like a caring best friend.
+Respond ONLY in ${langName}. No quotes, no extra text.`,
+        evening: `You are a warm, caring AI companion. Write a short, sweet end-of-day message for ${nickname} (max 60-80 chars).
+Gently ask how their day went and remind them they did great today. The tone should feel like a caring best friend.
+Respond ONLY in ${langName}. No quotes, no extra text.`,
+    };
+
+    try {
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'system', content: prompts[type] }],
+            temperature: 0.8,
+            max_tokens: 150,
+        });
+        return completion.choices[0].message?.content?.trim() || getFallbackMessage(type, lang, nickname);
+    } catch {
+        return getFallbackMessage(type, lang, nickname);
+    }
+}
+
+function getFallbackMessage(type: 'lunch' | 'evening', lang: string, nickname: string): string {
+    const fallbacks: Record<string, Record<string, string>> = {
+        lunch: {
+            en: `Hey ${nickname}💕 Time for lunch! Eat something delicious and recharge~`,
+            zh: `${nickname}💕 该吃午饭啦！好好吃饭，下午才有力气哦~`,
+        },
+        evening: {
+            en: `Hey ${nickname}🌟 Another day done! How was your day? You did amazing~`,
+            zh: `${nickname}🌟 辛苦一天了！今天过得怎么样？你真的很棒哦~`,
+        },
+    };
+    return fallbacks[type][lang] || fallbacks[type]['en'];
+}
+

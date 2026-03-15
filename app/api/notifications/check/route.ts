@@ -21,6 +21,10 @@ export async function GET(req: NextRequest) {
       where: {
         userId,
         dismissed: false,
+        OR: [
+          { scheduledFor: null },
+          { scheduledFor: { lte: new Date() } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
       take: 10,

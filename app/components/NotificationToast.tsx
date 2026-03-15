@@ -22,6 +22,14 @@ const TYPE_STYLES: Record<string, {
   iconBg: string;
   accent: string;
 }> = {
+  morning_alert: {
+    icon: '🌅',
+    gradient: 'from-amber-500/10 via-orange-500/5 to-transparent dark:from-amber-900/30 dark:via-orange-900/20 dark:to-transparent',
+    border: 'border-amber-200/60 dark:border-amber-700/40',
+    shadow: 'shadow-amber-500/15 dark:shadow-amber-500/10',
+    iconBg: 'bg-amber-100 dark:bg-amber-900/50',
+    accent: 'text-amber-600 dark:text-amber-400',
+  },
   rain_alert: {
     icon: '🌧️',
     gradient: 'from-blue-500/10 via-cyan-500/5 to-transparent dark:from-blue-900/30 dark:via-cyan-900/20 dark:to-transparent',
@@ -29,6 +37,22 @@ const TYPE_STYLES: Record<string, {
     shadow: 'shadow-blue-500/15 dark:shadow-blue-500/10',
     iconBg: 'bg-blue-100 dark:bg-blue-900/50',
     accent: 'text-blue-600 dark:text-blue-400',
+  },
+  lunch_reminder: {
+    icon: '🍽️',
+    gradient: 'from-orange-500/10 via-yellow-500/5 to-transparent dark:from-orange-900/30 dark:via-yellow-900/20 dark:to-transparent',
+    border: 'border-orange-200/60 dark:border-orange-700/40',
+    shadow: 'shadow-orange-500/15 dark:shadow-orange-500/10',
+    iconBg: 'bg-orange-100 dark:bg-orange-900/50',
+    accent: 'text-orange-600 dark:text-orange-400',
+  },
+  evening_checkin: {
+    icon: '🌇',
+    gradient: 'from-indigo-500/10 via-violet-500/5 to-transparent dark:from-indigo-900/30 dark:via-violet-900/20 dark:to-transparent',
+    border: 'border-indigo-200/60 dark:border-indigo-700/40',
+    shadow: 'shadow-indigo-500/15 dark:shadow-indigo-500/10',
+    iconBg: 'bg-indigo-100 dark:bg-indigo-900/50',
+    accent: 'text-indigo-600 dark:text-indigo-400',
   },
   proactive_care: {
     icon: '💜',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface AppNotification {
   id: string;
@@ -15,21 +15,6 @@ export interface AppNotification {
 
 export function useNotifications(userId: string | null, pollInterval = 60000) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-  const shownBrowserNotifs = useRef<Set<string>>(new Set());
-
-  // Request browser notification permission on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        setPermissionGranted(true);
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(perm => {
-          setPermissionGranted(perm === 'granted');
-        });
-      }
-    }
-  }, []);
 
   const fetchNotifications = useCallback(async () => {
     if (!userId) return;
@@ -38,25 +23,11 @@ export function useNotifications(userId: string | null, pollInterval = 60000) {
       if (res.ok) {
         const data: AppNotification[] = await res.json();
         setNotifications(data);
-
-        // Show browser notifications for new unread items
-        if (permissionGranted) {
-          for (const notif of data) {
-            if (!notif.read && !shownBrowserNotifs.current.has(notif.id)) {
-              shownBrowserNotifs.current.add(notif.id);
-              new Notification(notif.title, {
-                body: notif.message,
-                icon: '/favicon.ico',
-                tag: notif.id,
-              });
-            }
-          }
-        }
       }
     } catch {
       // silently fail
     }
-  }, [userId, permissionGranted]);
+  }, [userId]);
 
   // Poll on interval
   useEffect(() => {

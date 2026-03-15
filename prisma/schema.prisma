@@ -168,13 +168,14 @@ model Notification {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 
-  type      String            // rain_alert | schedule_reminder
+  type      String            // morning_alert | lunch_reminder | evening_checkin | rain_alert
   title     String
   message   String   @db.Text
   data      String?  @db.Text // JSON: extra data (scheduleItemId, weather details, etc.)
 
   read      Boolean  @default(false)
   dismissed Boolean  @default(false)
+  scheduledFor DateTime?       // If set, notification is hidden until this time
 
   createdAt DateTime @default(now())
 

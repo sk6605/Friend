@@ -182,11 +182,18 @@ export async function fetchForecast(city: string): Promise<{ list: ForecastEntry
   }
 }
 
-export function detectRainToday(forecast: ForecastEntry[]): RainForecast {
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+export function detectRainToday(forecast: ForecastEntry[], timezoneOffset = 0): RainForecast {
+  // Calculate user's local "today" using timezone offset (seconds from UTC)
+  const nowMs = Date.now() + timezoneOffset * 1000;
+  const localDate = new Date(nowMs);
+  const todayStr = localDate.toISOString().slice(0, 10); // "YYYY-MM-DD" in user's local time
 
-  const todayEntries = forecast.filter(entry => entry.dt_txt.startsWith(todayStr));
+  // Filter forecast entries: convert each entry's UTC time to local time and check if it's "today"
+  const todayEntries = forecast.filter(entry => {
+    const entryLocalMs = entry.dt * 1000 + timezoneOffset * 1000;
+    const entryLocalDate = new Date(entryLocalMs);
+    return entryLocalDate.toISOString().slice(0, 10) === todayStr;
+  });
 
   const rainPeriods = todayEntries
     .filter(entry => {
@@ -198,11 +205,18 @@ export function detectRainToday(forecast: ForecastEntry[]): RainForecast {
         entry.pop > 0.5
       );
     })
-    .map(entry => ({
-      time: entry.dt_txt.slice(11, 16), // "HH:MM"
-      description: entry.weather[0]?.description || 'rain',
-      probability: Math.round(entry.pop * 100),
-    }));
+    .map(entry => {
+      // Convert to user's local time for display
+      const entryLocalMs = entry.dt * 1000 + timezoneOffset * 1000;
+      const entryLocalDate = new Date(entryLocalMs);
+      const hours = entryLocalDate.getUTCHours().toString().padStart(2, '0');
+      const minutes = entryLocalDate.getUTCMinutes().toString().padStart(2, '0');
+      return {
+        time: `${hours}:${minutes}`,
+        description: entry.weather[0]?.description || 'rain',
+        probability: Math.round(entry.pop * 100),
+      };
+    });
 
   return {
     willRain: rainPeriods.length > 0,
