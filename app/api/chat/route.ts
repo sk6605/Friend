@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { messages, resumeAssistant, fileUrls, fileMetadata, conversationId, userId } = await req.json();
+    const { messages, resumeAssistant, fileUrls, fileMetadata, fileExtractedTexts, conversationId, userId } = await req.json();
 
     // ─── Check account restriction ───
     if (userId) {
@@ -177,23 +177,30 @@ export async function POST(req: NextRequest) {
       const queryText = lastUserMsg?.content || '';
 
       for (let i = 0; i < fileUrls.length; i++) {
-        const fileUrl = fileUrls[i];
         const metadata = fileMetadata[i];
         try {
-          const urlPath = new URL(fileUrl, 'http://localhost').pathname;
-          const filePath = path.join(process.cwd(), 'public', urlPath.replace(/^\/public\//, ''));
-          if (fs.existsSync(filePath)) {
-            const extractedText = await extractTextFromFile(filePath, metadata.name);
+          // Use pre-extracted text from upload if available
+          let extractedText = fileExtractedTexts?.[i];
 
+          // Fallback: try filesystem extraction (for backward compatibility)
+          if (!extractedText) {
+            const fileUrl = fileUrls[i];
+            const urlPath = new URL(fileUrl, 'http://localhost').pathname;
+            const filePath = path.join(process.cwd(), 'public', urlPath.replace(/^\/public\//, ''));
+            if (fs.existsSync(filePath)) {
+              extractedText = await extractTextFromFile(filePath, metadata.name);
+            }
+          }
+
+          if (extractedText) {
             // Chunk the text and select relevant sections
             const allChunks = chunkText(extractedText);
             const relevantChunks = selectRelevantChunks(allChunks, queryText, 5);
             const formatted = formatChunksForPrompt(relevantChunks, metadata.name, allChunks.length);
-
             filesContent += `\n\n${formatted}`;
           }
         } catch (error) {
-          console.error(`Error extracting file ${metadata.name}:`, error);
+          console.error(`Error processing file ${metadata.name}:`, error);
         }
       }
     }

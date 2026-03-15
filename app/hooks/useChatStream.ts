@@ -201,6 +201,7 @@ export function useChatStream({
             // 3. 处理文件上传 (Upload files logic)
             let fileUrls: string[] = [];
             let fileMetadata: { name: string; size: number; type: string }[] = [];
+            let fileExtractedTexts: (string | undefined)[] = [];
 
             if (files && files.length > 0) {
                 const formData = new FormData();
@@ -219,6 +220,7 @@ export function useChatStream({
                         size: f.size,
                         type: f.type,
                     }));
+                    fileExtractedTexts = uploadData.files.map((f: any) => f.extractedText);
                 }
             }
 
@@ -250,6 +252,7 @@ export function useChatStream({
                             resumeAssistant: attempt > 0 && assistantText ? assistantText : undefined,
                             fileUrls: fileUrls.length > 0 ? fileUrls : undefined,
                             fileMetadata: fileMetadata.length > 0 ? fileMetadata : undefined,
+                            fileExtractedTexts: fileExtractedTexts.some(t => t) ? fileExtractedTexts : undefined,
                         }),
                     });
 

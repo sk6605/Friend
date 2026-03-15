@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { extractTextFromFile } from '@/app/lib/fileExtractor';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const MAX_FILES = 5;
@@ -63,12 +64,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    // Use /tmp for file storage (works on Vercel serverless)
+    const uploadDir = '/tmp/uploads';
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const results: { url: string; name: string; size: number; type: string }[] = [];
+    const results: { url: string; name: string; size: number; type: string; extractedText?: string }[] = [];
 
     for (const file of files) {
       const bytes = await file.arrayBuffer();
@@ -81,11 +83,26 @@ export async function POST(req: NextRequest) {
 
       fs.writeFileSync(filePath, buffer);
 
+      // Extract text content immediately (in the same serverless invocation)
+      const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext);
+      let extractedText: string | undefined;
+      if (!isImage) {
+        try {
+          extractedText = await extractTextFromFile(filePath, file.name);
+        } catch (e) {
+          console.error(`Text extraction failed for ${file.name}:`, e);
+        }
+      }
+
+      // Clean up temp file
+      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+
       results.push({
         url: `/uploads/${uniqueName}`,
         name: file.name,
         size: file.size,
         type: file.type,
+        extractedText,
       });
     }
 
