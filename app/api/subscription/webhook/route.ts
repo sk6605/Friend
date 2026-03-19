@@ -1,9 +1,17 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/app/lib/db';
-import { stripe } from '@/app/lib/stripe';
+import { getStripe } from '@/app/lib/stripe';
 import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
+
+function getSubscriptionPeriod(sub: Stripe.Subscription) {
+  const item = sub.items.data[0];
+  return {
+    start: new Date(item.current_period_start * 1000),
+    end: new Date(item.current_period_end * 1000),
+  };
+}
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
@@ -15,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = getStripe().webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
     return Response.json({ error: 'Invalid signature' }, { status: 400 });
@@ -31,7 +39,8 @@ export async function POST(req: NextRequest) {
         const stripeSubscriptionId = session.subscription as string;
 
         // Fetch the Stripe subscription to get period dates
-        const stripeSub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+        const stripeSub = await getStripe().subscriptions.retrieve(stripeSubscriptionId);
+        const period = getSubscriptionPeriod(stripeSub);
 
         await prisma.subscription.upsert({
           where: { userId },
@@ -41,8 +50,8 @@ export async function POST(req: NextRequest) {
             status: 'active',
             paymentProvider: 'stripe',
             externalId: stripeSubscriptionId,
-            currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-            currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+            currentPeriodStart: period.start,
+            currentPeriodEnd: period.end,
             cancelledAt: null,
           },
           create: {
@@ -52,8 +61,8 @@ export async function POST(req: NextRequest) {
             status: 'active',
             paymentProvider: 'stripe',
             externalId: stripeSubscriptionId,
-            currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-            currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+            currentPeriodStart: period.start,
+            currentPeriodEnd: period.end,
           },
         });
         break;
@@ -61,17 +70,19 @@ export async function POST(req: NextRequest) {
 
       case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
+        const subRef = invoice.parent?.subscription_details?.subscription;
+        const subscriptionId = typeof subRef === 'string' ? subRef : subRef?.id;
         if (!subscriptionId) break;
 
-        const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+        const stripeSub = await getStripe().subscriptions.retrieve(subscriptionId);
+        const invoicePeriod = getSubscriptionPeriod(stripeSub);
 
         await prisma.subscription.updateMany({
           where: { externalId: subscriptionId },
           data: {
             status: 'active',
-            currentPeriodStart: new Date(stripeSub.current_period_start * 1000),
-            currentPeriodEnd: new Date(stripeSub.current_period_end * 1000),
+            currentPeriodStart: invoicePeriod.start,
+            currentPeriodEnd: invoicePeriod.end,
           },
         });
         break;
@@ -79,11 +90,12 @@ export async function POST(req: NextRequest) {
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
-        if (!subscriptionId) break;
+        const failedSubRef = invoice.parent?.subscription_details?.subscription;
+        const failedSubscriptionId = typeof failedSubRef === 'string' ? failedSubRef : failedSubRef?.id;
+        if (!failedSubscriptionId) break;
 
         await prisma.subscription.updateMany({
-          where: { externalId: subscriptionId },
+          where: { externalId: failedSubscriptionId },
           data: { status: 'past_due' },
         });
         break;
@@ -110,10 +122,11 @@ export async function POST(req: NextRequest) {
           canceled: 'cancelled',
           unpaid: 'past_due',
         };
+        const subPeriod = getSubscriptionPeriod(subscription);
         const updateData: Record<string, unknown> = {
           status: statusMap[subscription.status] || 'active',
-          currentPeriodStart: new Date(subscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          currentPeriodStart: subPeriod.start,
+          currentPeriodEnd: subPeriod.end,
         };
 
         if (plan) {

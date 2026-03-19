@@ -153,7 +153,7 @@ export default function SubscriptionPage() {
         });
         const data = await res.json();
         if (res.ok && data.url) {
-          window.location.href = data.url;
+          window.location.assign(data.url);
           return; // Don't clear subscribing state — page is redirecting
         } else {
           setMessage({ type: 'error', text: data.error || 'Checkout failed' });
@@ -194,7 +194,7 @@ export default function SubscriptionPage() {
       });
       const data = await res.json();
       if (res.ok && data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       } else {
         setMessage({ type: 'error', text: data.error || 'Could not open billing portal' });
       }
