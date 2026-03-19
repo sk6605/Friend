@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
         subscribed: false,
         plan: 'free',
         planDisplayName: 'Free',
+        stripeCustomerId: null,
+        paymentProvider: null,
         limits: {
           dailyMessageLimit: 20,
           maxFileUploads: 2,
@@ -43,6 +45,11 @@ export async function GET(req: NextRequest) {
         },
       });
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { stripeCustomerId: true },
+    });
 
     // Check if subscription has expired
     const isExpired = new Date() > new Date(subscription.currentPeriodEnd);
@@ -57,6 +64,8 @@ export async function GET(req: NextRequest) {
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
       cancelledAt: subscription.cancelledAt,
+      stripeCustomerId: user?.stripeCustomerId || null,
+      paymentProvider: subscription.paymentProvider,
       limits: {
         dailyMessageLimit: subscription.plan.dailyMessageLimit,
         maxFileUploads: subscription.plan.maxFileUploads,
@@ -92,6 +101,13 @@ export async function DELETE(req: NextRequest) {
 
     if (!subscription) {
       return Response.json({ error: 'No active subscription found' }, { status: 404 });
+    }
+
+    // Stripe-managed subscriptions must be cancelled via Customer Portal
+    if (subscription.paymentProvider === 'stripe' && subscription.externalId) {
+      return Response.json({
+        error: 'Please use the Manage Billing portal to cancel your Stripe subscription',
+      }, { status: 400 });
     }
 
     await prisma.subscription.update({
