@@ -148,7 +148,7 @@ Wind: ${weather.windSpeed} m/s
 
 // ─── Forecast API (5-day / 3-hour) ─────────────────────────────
 
-interface ForecastEntry {
+export interface ForecastEntry {
   dt: number;
   dt_txt: string;
   main: { temp: number; feels_like: number; humidity: number };
@@ -222,5 +222,79 @@ export function detectRainToday(forecast: ForecastEntry[], timezoneOffset = 0): 
     willRain: rainPeriods.length > 0,
     rainPeriods,
     city: '',
+  };
+}
+
+// ─── Tomorrow's Forecast ─────────────────────────────────────
+
+export interface TomorrowForecast {
+  willRain: boolean;
+  rainPeriods: { time: string; description: string; probability: number }[];
+  tempMin: number;
+  tempMax: number;
+  humidity: number;
+  summary: string;
+}
+
+export function detectRainTomorrow(forecast: ForecastEntry[], timezoneOffset = 0): TomorrowForecast {
+  const nowMs = Date.now() + timezoneOffset * 1000;
+  const localDate = new Date(nowMs);
+  // Get tomorrow's date string
+  localDate.setUTCDate(localDate.getUTCDate() + 1);
+  const tomorrowStr = localDate.toISOString().slice(0, 10);
+
+  const tomorrowEntries = forecast.filter(entry => {
+    const entryLocalMs = entry.dt * 1000 + timezoneOffset * 1000;
+    const entryLocalDate = new Date(entryLocalMs);
+    return entryLocalDate.toISOString().slice(0, 10) === tomorrowStr;
+  });
+
+  if (tomorrowEntries.length === 0) {
+    return { willRain: false, rainPeriods: [], tempMin: 0, tempMax: 0, humidity: 0, summary: 'No forecast data available' };
+  }
+
+  const temps = tomorrowEntries.map(e => e.main.temp);
+  const humidities = tomorrowEntries.map(e => e.main.humidity);
+  const tempMin = Math.round(Math.min(...temps));
+  const tempMax = Math.round(Math.max(...temps));
+  const avgHumidity = Math.round(humidities.reduce((a, b) => a + b, 0) / humidities.length);
+
+  const rainPeriods = tomorrowEntries
+    .filter(entry => {
+      const weatherMain = entry.weather[0]?.main?.toLowerCase() || '';
+      return (
+        weatherMain === 'rain' ||
+        weatherMain === 'drizzle' ||
+        weatherMain === 'thunderstorm' ||
+        entry.pop > 0.5
+      );
+    })
+    .map(entry => {
+      const entryLocalMs = entry.dt * 1000 + timezoneOffset * 1000;
+      const entryLocalDate = new Date(entryLocalMs);
+      const hours = entryLocalDate.getUTCHours().toString().padStart(2, '0');
+      const minutes = entryLocalDate.getUTCMinutes().toString().padStart(2, '0');
+      return {
+        time: `${hours}:${minutes}`,
+        description: entry.weather[0]?.description || 'rain',
+        probability: Math.round(entry.pop * 100),
+      };
+    });
+
+  // Build summary
+  const mainConditions = tomorrowEntries.map(e => e.weather[0]?.main || '').filter(Boolean);
+  const conditionCounts: Record<string, number> = {};
+  mainConditions.forEach(c => { conditionCounts[c] = (conditionCounts[c] || 0) + 1; });
+  const dominantCondition = Object.entries(conditionCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Clear';
+
+  const summary = `${dominantCondition}, ${tempMin}-${tempMax}°C, humidity ${avgHumidity}%${rainPeriods.length > 0 ? `, rain at ${rainPeriods.map(r => r.time).join(', ')}` : ''}`;
+
+  return {
+    willRain: rainPeriods.length > 0,
+    rainPeriods,
+    tempMin,
+    tempMax,
+    humidity: avgHumidity,
+    summary,
   };
 }
