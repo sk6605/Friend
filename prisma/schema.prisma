@@ -25,6 +25,7 @@ model User {
   profile   String?  @db.Text // JSON string with AI-gathered preferences
   memory    String?  @db.Text // Long-term AI memory: user preferences, speaking style, key facts
   pushSubscription String? @db.Text // JSON string for Web Push Subscription
+  stripeCustomerId String?  // Stripe Customer ID
 
 
   // Gamification
@@ -269,6 +270,8 @@ model Plan {
   priorityResponse   Boolean @default(false) // faster AI response
   customAiPersonality Boolean @default(false) // deep personality customization
   advancedAnalytics  Boolean @default(false) // user mood/insight analytics
+  stripePriceMonthly String?  // Stripe Price ID for monthly billing
+  stripePriceYearly  String?  // Stripe Price ID for yearly billing
 
   description String? @db.Text // short description of the plan
   features    String? @db.Text // JSON array of feature strings for display
@@ -306,4 +309,5 @@ model Subscription {
 
   @@index([userId])
   @@index([status])
+  @@index([externalId])
 }
