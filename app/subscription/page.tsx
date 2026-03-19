@@ -29,6 +29,8 @@ interface CurrentSub {
   status?: string;
   interval?: string;
   currentPeriodEnd?: string;
+  paymentProvider?: string;
+  stripeCustomerId?: string;
 }
 
 const PLAN_ICONS: Record<string, string> = {
@@ -82,6 +84,17 @@ export default function SubscriptionPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      setMessage({ type: 'success', text: 'Subscription activated successfully! \u{1F389}' });
+      window.history.replaceState({}, '', '/subscription');
+    } else if (params.get('cancelled') === 'true') {
+      setMessage({ type: 'error', text: 'Checkout was cancelled. You can try again anytime.' });
+      window.history.replaceState({}, '', '/subscription');
+    }
+  }, []);
+
   async function fetchData() {
     setLoading(true);
     try {
@@ -110,22 +123,41 @@ export default function SubscriptionPage() {
       return;
     }
 
+    // Find the plan to check if it's free
+    const plan = plans.find(p => p.id === planId);
+
     setSubscribing(planId);
     setMessage(null);
 
     try {
-      const res = await fetch('/api/subscription/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, planId, interval: billingInterval }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: 'success', text: `Successfully subscribed to ${planName}! \u{1F389}` });
-        await fetchData();
+      if (plan && plan.price === 0) {
+        // Free plan — use direct subscribe
+        const res = await fetch('/api/subscription/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, planId, interval: billingInterval }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setMessage({ type: 'success', text: `Switched to ${planName}!` });
+          await fetchData();
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Failed' });
+        }
       } else {
-        setMessage({ type: 'error', text: data.error || 'Subscription failed' });
+        // Paid plan — redirect to Stripe Checkout
+        const res = await fetch('/api/subscription/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, planId, interval: billingInterval }),
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          window.location.href = data.url;
+          return; // Don't clear subscribing state — page is redirecting
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Checkout failed' });
+        }
       }
     } catch {
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
@@ -146,6 +178,25 @@ export default function SubscriptionPage() {
       } else {
         const data = await res.json();
         setMessage({ type: 'error', text: data.error || 'Cancellation failed' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    }
+  }
+
+  async function handleManageBilling() {
+    if (!userId) return;
+    try {
+      const res = await fetch('/api/subscription/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Could not open billing portal' });
       }
     } catch {
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
@@ -298,7 +349,15 @@ export default function SubscriptionPage() {
                     <button disabled className="w-full py-3 rounded-xl bg-slate-700 text-slate-400 font-medium text-sm cursor-not-allowed">
                       Current Plan
                     </button>
-                    {plan.name !== 'free' && (
+                    {plan.name !== 'free' && currentSub?.stripeCustomerId && (
+                      <button
+                        onClick={handleManageBilling}
+                        className="w-full py-2 rounded-xl text-purple-400 hover:text-purple-300 text-xs transition-colors"
+                      >
+                        Manage Billing
+                      </button>
+                    )}
+                    {plan.name !== 'free' && !currentSub?.stripeCustomerId && (
                       <button
                         onClick={handleCancel}
                         className="w-full py-2 rounded-xl text-red-400 hover:text-red-300 text-xs transition-colors"
@@ -365,7 +424,7 @@ export default function SubscriptionPage() {
         {/* Footer note */}
         <div className="mt-12 text-center text-xs text-slate-600">
           <p>Cancel anytime. Your subscription remains active until the end of the billing period.</p>
-          <p className="mt-1">Payment processing will be available soon via Stripe. Currently in preview mode.</p>
+          <p className="mt-1">Payments securely processed by Stripe.</p>
         </div>
       </div>
     </div>
