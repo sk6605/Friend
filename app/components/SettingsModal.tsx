@@ -54,6 +54,10 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
   const [selectedPersona, setSelectedPersona] = useState<PersonaKey>('default');
   const [dataControlSaving, setDataControlSaving] = useState(false);
 
+  // Subscription state for gating
+  const [isPremium, setIsPremium] = useState(false);
+  const [isProOrHigher, setIsProOrHigher] = useState(false);
+
   // Derived: cities for selected country
   const selectedCountryData = COUNTRIES.find(c => c.code === country);
   const availableCities = selectedCountryData?.cities || [];
@@ -75,6 +79,11 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
           setCurrentPersona(data.persona);
           setSelectedPersona(data.persona);
         }
+        
+        // Set subscription flags
+        const planName = data?.subscription?.plan?.name || 'free';
+        setIsPremium(planName === 'premium');
+        setIsProOrHigher(['pro', 'premium'].includes(planName));
       })
       .catch(() => { });
   }, [userId]);
@@ -495,7 +504,12 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
               >
                 <span className="text-lg w-5 text-center">{PERSONAS.find(p => p.key === currentPersona)?.emoji || '😊'}</span>
                 <div>
-                  <div className="font-medium">AI Personality</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium">AI Personality</div>
+                    {!isPremium && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/20">PREMIUM</span>
+                    )}
+                  </div>
                   <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
                     Currently: {PERSONAS.find(p => p.key === currentPersona)?.name || 'Balanced Lumi'}
                   </div>
@@ -589,7 +603,12 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
                 <div>
-                  <div className="font-medium">Data Control</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium">Data Control</div>
+                    {!isProOrHigher && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-500 border border-purple-500/20">PRO</span>
+                    )}
+                  </div>
                   <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
                     {dataControl ? 'Sharing enabled — AI learns from chats' : 'Sharing disabled — no data used'}
                   </div>
@@ -966,6 +985,11 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                             ? 'text-purple-700 dark:text-purple-300'
                             : 'text-neutral-700 dark:text-neutral-200'
                             }`}>{p.name}</span>
+                          {p.key !== 'default' && !isPremium && (
+                            <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
                           {selectedPersona === p.key && (
                             <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -985,10 +1009,10 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
 
               <button
                 onClick={handleChangePersona}
-                disabled={loading || selectedPersona === currentPersona}
+                disabled={loading || selectedPersona === currentPersona || (!isPremium && selectedPersona !== 'default')}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md active:scale-[0.98]"
               >
-                {loading ? 'Saving...' : selectedPersona === currentPersona ? 'No changes' : 'Save Personality'}
+                {loading ? 'Saving...' : selectedPersona === currentPersona ? 'No changes' : (!isPremium && selectedPersona !== 'default') ? 'Premium Feature' : 'Save Personality'}
               </button>
             </div>
           )}

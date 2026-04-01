@@ -217,11 +217,14 @@ export async function POST(req: NextRequest) {
     let safeModeCategory = 'self_harm' as 'self_harm' | 'extreme_speech';
     let userAgeGroup = 'adult';
     let userDataControl = true;
+    let isMemoryEnabled = false;
+    let isCustomPersonaEnabled = false;
 
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
+          subscription: { include: { plan: true } },
           conversations: {
             where: {
               id: { not: conversationId },
@@ -235,6 +238,9 @@ export async function POST(req: NextRequest) {
       });
 
       if (user) {
+        // Feature gating
+        isMemoryEnabled = user.subscription?.plan?.memoryEnabled ?? false;
+        isCustomPersonaEnabled = user.subscription?.plan?.customAiPersonality ?? false;
         // Track age group, SAFE_MODE state, and data control preference
         userAgeGroup = user.ageGroup || 'adult';
         userDataControl = user.dataControl ?? true;
@@ -267,8 +273,9 @@ export async function POST(req: NextRequest) {
         if (user.aiName) customAiName = user.aiName;
         if (user.language) preferredLanguage = user.language;
 
-        // AI persona
-        personaPrompt = getPersonaPrompt(user.persona || 'default');
+        // AI persona - Only allow if enabled, otherwise fallback to default
+        const effectivePersona = isCustomPersonaEnabled ? (user.persona || 'default') : 'default';
+        personaPrompt = getPersonaPrompt(effectivePersona);
 
         // User profile — include name and age if available
         userProfilePrompt = `
@@ -287,8 +294,8 @@ ${user.age ? `- Age: ${user.age}` : '- Age: not provided (treat as adult)'}
           }
         }
 
-        // Long-term memory
-        if (user.memory) {
+        // Long-term memory - Only if enabled for plan
+        if (user.memory && isMemoryEnabled) {
           crossConversationMemory += `
 Your long-term memory about this user (reference naturally when relevant):
 ${user.memory}

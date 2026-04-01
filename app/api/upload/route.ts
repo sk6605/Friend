@@ -6,8 +6,9 @@ import { extractTextFromFile } from '@/app/lib/fileExtractor';
 import { uploadToR2 } from '@/app/lib/r2';
 import { prisma } from '@/app/lib/db';
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-const MAX_FILES = 5;
+// Default limits (will be overridden by user plan)
+const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const DEFAULT_MAX_FILES = 2;
 
 const ALLOWED_TYPES: Record<string, string[]> = {
   'application/pdf': ['.pdf'],
@@ -40,22 +41,40 @@ export async function POST(req: NextRequest) {
     const files = formData.getAll('files') as File[];
     const userId = (formData.get('userId') as string) || null;
 
+    // Fetch user's plan limits
+    let maxFileSize = DEFAULT_MAX_FILE_SIZE;
+    let maxFiles = DEFAULT_MAX_FILES;
+
+    if (userId) {
+      const subscription = await prisma.subscription.findUnique({
+        where: { userId },
+        include: { plan: true },
+      });
+      if (subscription?.plan) {
+        maxFileSize = (subscription.plan.maxFileSizeMB || 10) * 1024 * 1024;
+        maxFiles = subscription.plan.maxFileUploads || 2;
+      }
+    }
+
     if (!files || files.length === 0) {
       return Response.json({ error: 'No files uploaded' }, { status: 400 });
     }
 
-    if (files.length > MAX_FILES) {
+    if (files.length > maxFiles) {
       return Response.json(
-        { error: `Too many files. Maximum ${MAX_FILES} files per upload.` },
+        { error: `Too many files. Your current plan allows maximum ${maxFiles} files per upload.` },
         { status: 400 }
       );
     }
 
     // Validate all files before processing
     for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) {
+      if (file.size > maxFileSize) {
+        const sizeMsg = maxFileSize >= 1024 * 1024 
+          ? `${maxFileSize / (1024 * 1024)} MB`
+          : `${Math.round(maxFileSize / 1024)} KB`;
         return Response.json(
-          { error: `File "${file.name}" exceeds the 50 MB size limit.` },
+          { error: `File "${file.name}" exceeds your plan's ${sizeMsg} size limit.` },
           { status: 400 }
         );
       }

@@ -39,24 +39,30 @@ const PLAN_ICONS: Record<string, string> = {
   premium: '\u{1F451}',
 };
 
-const PLAN_COLORS: Record<string, { border: string; bg: string; btn: string; badge: string }> = {
+const PLAN_COLORS: Record<string, { border: string; bg: string; btn: string; badge: string; accent: string; text: string }> = {
   free: {
-    border: 'border-slate-700',
-    bg: 'bg-slate-900',
-    btn: 'bg-slate-700 hover:bg-slate-600',
+    border: 'border-slate-800',
+    bg: 'bg-slate-900/50',
+    btn: 'bg-slate-800 hover:bg-slate-700',
     badge: 'bg-slate-500/20 text-slate-400',
+    accent: 'text-slate-500',
+    text: 'text-slate-300'
   },
   pro: {
-    border: 'border-purple-500/50',
-    bg: 'bg-slate-900',
-    btn: 'bg-purple-600 hover:bg-purple-700',
+    border: 'border-purple-500/40',
+    bg: 'bg-gradient-to-br from-purple-900/30 to-indigo-900/30 backdrop-blur-md',
+    btn: 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-lg shadow-purple-500/20',
     badge: 'bg-purple-500/20 text-purple-400',
+    accent: 'text-purple-400',
+    text: 'text-purple-100'
   },
   premium: {
-    border: 'border-amber-500/50',
-    bg: 'bg-slate-900',
-    btn: 'bg-amber-600 hover:bg-amber-700',
-    badge: 'bg-amber-500/20 text-amber-400',
+    border: 'border-emerald-500/40',
+    bg: 'bg-gradient-to-br from-emerald-900/30 to-teal-900/30 backdrop-blur-md',
+    btn: 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-500/20',
+    badge: 'bg-emerald-500/20 text-emerald-400',
+    accent: 'text-emerald-400',
+    text: 'text-emerald-50'
   },
 };
 
@@ -267,8 +273,8 @@ export default function SubscriptionPage() {
           <div className="mb-8 p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center">
             <p className="text-sm text-purple-300">
               You&apos;re currently on the <strong className="text-purple-200">{currentSub.planDisplayName}</strong> plan
-              {currentSub.interval && ` (${currentSub.interval})`}
-              {currentSub.currentPeriodEnd && ` — renews ${new Date(currentSub.currentPeriodEnd).toLocaleDateString()}`}
+              {currentSub.plan !== 'free' && currentSub.interval && ` (${currentSub.interval})`}
+              {currentSub.plan !== 'free' && currentSub.currentPeriodEnd && ` — renews ${new Date(currentSub.currentPeriodEnd).toLocaleDateString()}`}
             </p>
           </div>
         )}
@@ -339,13 +345,18 @@ export default function SubscriptionPage() {
                 </div>
 
                 {/* Features */}
-                <ul className="space-y-3 mb-8 flex-1">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <span className="text-emerald-400 mt-0.5">{'\u2713'}</span>
-                      <span className="text-slate-300">{feature}</span>
-                    </li>
-                  ))}
+                <ul className="space-y-4 mb-8 flex-1">
+                  {plan.features.map((feature, i) => {
+                    const isVibe = feature.includes('✨') || feature.includes('🧠') || feature.includes('👑') || feature.includes('🎭');
+                    return (
+                      <li key={i} className="flex items-start gap-2.5 text-sm">
+                        <span className={`${isVibe ? colors.accent : 'text-emerald-400'} mt-1 flex-shrink-0`}>
+                          {isVibe ? '\u2728' : '\u2713'}
+                        </span>
+                        <span className={isVibe ? 'font-medium text-white' : 'text-slate-300'}>{feature}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 {/* CTA Button */}
