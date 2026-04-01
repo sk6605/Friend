@@ -56,18 +56,18 @@ export function useChatStream({
         const isSafe = checkSafeMode && currentConvId ? checkSafeMode(currentConvId) : false;
         if (!isSafe || !currentConvId) return;
 
-        const timer = setInterval(() => {
-            if (isStreaming || isLoading) return; // Don't poll while actively querying/streaming
-
+        const fetchMessages = () => {
             fetch(`/api/conversations/${currentConvId}?userId=${userId}`)
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) return null;
+                    return res.json();
+                })
                 .then(data => {
                     if (data && data.messages) {
                         setMessages(prev => {
-                            // Only update if there are new messages or if the last message content changed (e.g. Admin override)
                             if (data.messages.length > prev.length) {
                                 return data.messages;
-                            } else if (data.messages.length === prev.length) {
+                            } else if (data.messages.length === prev.length && prev.length > 0) {
                                 const lastDb = data.messages[data.messages.length - 1];
                                 const lastLocal = prev[prev.length - 1];
                                 if (lastDb && lastLocal && lastDb.content !== lastLocal.content) {
@@ -78,11 +78,15 @@ export function useChatStream({
                         });
                     }
                 })
-                .catch(err => console.error("Polling error:", err));
-        }, 3000); // Poll every 3 seconds during SAFE_MODE
+                .catch(() => { /* ignore polling errors */ });
+        };
+
+        // Fetch immediately, then poll every 3s
+        fetchMessages();
+        const timer = setInterval(fetchMessages, 3000);
 
         return () => clearInterval(timer);
-    }, [checkSafeMode, currentConvId, isStreaming, isLoading, userId]);
+    }, [checkSafeMode, currentConvId, userId]);
 
     /**
      * waitForNetwork()
