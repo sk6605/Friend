@@ -14,6 +14,11 @@ export async function GET() {
       orderBy: { price: 'asc' },
     });
 
+
+    // Seed default plans if none exist
+    if (plans.length === 0) {
+      await prisma.plan.createMany({
+        data: [
           {
             name: 'free',
             displayName: 'Free',
