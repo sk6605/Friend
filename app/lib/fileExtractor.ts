@@ -54,13 +54,56 @@ async function extractFromPDF(filePath: string): Promise<string> {
 }
 
 async function extractFromDocx(filePath: string): Promise<string> {
+  // Try mammoth first (best quality)
   try {
     const fileBuffer = fs.readFileSync(filePath);
-    // Create a proper ArrayBuffer copy — Buffer.buffer can be a shared ArrayBuffer
-    // which causes mammoth to fail silently in some Node.js / Vercel environments
     const arrayBuffer = new Uint8Array(fileBuffer).buffer;
     const result = await extractRawText({ arrayBuffer });
-    return result.value || '[DOCX has no extractable text]';
+    if (result.value && result.value.trim().length > 0) {
+      return result.value;
+    }
+  } catch (e) {
+    console.error('Mammoth failed, falling back to XML extraction:', e);
+  }
+
+  // Fallback: Parse DOCX as ZIP and extract text from word/document.xml
+  // (same approach that works for PPTX since DOCX is also a ZIP of XML)
+  try {
+    const text: string[] = [];
+    return new Promise<string>((resolve, reject) => {
+      fs.createReadStream(filePath)
+        .pipe(unzipper.Parse())
+        .on('entry', (entry: Entry) => {
+          const entryPath = entry.path;
+          // DOCX stores main content in word/document.xml
+          if (entryPath === 'word/document.xml') {
+            let xmlContent = '';
+            entry.on('data', (chunk: Buffer) => {
+              xmlContent += chunk.toString('utf-8');
+            });
+            entry.on('end', async () => {
+              try {
+                const parsed = await parseStringPromise(xmlContent);
+                extractTextFromXML(parsed, text);
+              } catch (err) {
+                console.error('Error parsing DOCX XML:', err);
+              }
+            });
+          } else {
+            entry.autodrain();
+          }
+        })
+        .on('error', (err: Error) => {
+          reject(new Error(`DOCX fallback extraction failed: ${err.message}`));
+        })
+        .on('finish', () => {
+          if (text.length === 0) {
+            resolve('[DOCX file has no extractable text]');
+          } else {
+            resolve(text.join('\n'));
+          }
+        });
+    });
   } catch (error) {
     throw new Error(`DOCX extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
