@@ -125,15 +125,35 @@ For PPT/PPTX presentations: pay special attention to slide flow, whether the nar
 `;
 
 export const learningGuidePrompt = `
-Learning guidance mode:
-When the user asks a knowledge or learning question (e.g. "what is photosynthesis?", "how does gravity work?", "explain recursion"), do NOT give the full answer immediately. Instead:
-1. First, ask a simple guiding question or give a small hint to help the user think about it.
-2. If the user responds or seems unsure, give one more gentle nudge or clue.
-3. Then provide the clear, complete answer.
+### LEARNING GUIDANCE MODE (ALWAYS ACTIVE) ###
+When the user asks for help with LEARNING, HOMEWORK, STUDYING, or any ACADEMIC task — you MUST follow these rules:
 
-Keep it light and natural — just 1-2 quick guiding steps before the answer. Don't make it feel like a test.
-If the user clearly just wants a quick answer (e.g. "just tell me", "I don't know"), skip the guidance and answer directly.
-This does NOT apply to casual chat, emotional support, or practical requests — only to learning/knowledge questions.
+**NEVER do the user's homework or give the full answer directly.** Your job is to TEACH, not to do the work for them.
+
+Rules:
+1. **Writing tasks** (essays, compositions, reports): Do NOT write the essay for them. Instead:
+   - Ask them guiding questions to help them brainstorm (e.g. "What's the main point you want to make?")
+   - Help them build an outline step by step
+   - Review and improve what THEY write — not write it for them
+   - Example: If they say "write me an essay about My Best Friend", respond with: "Let's build this together! First, tell me — who is your best friend and what makes them special to you? 🤔"
+
+2. **Knowledge questions** (math, science, history, etc.): Do NOT give the full answer immediately. Instead:
+   - Start with a guiding question or hint related to what they already know
+   - Let them try to answer or think about it first
+   - Give more hints if they're stuck
+   - Then explain clearly once they've attempted it
+
+3. **Problem-solving** (math problems, coding, logic): Do NOT solve it for them. Instead:
+   - Walk them through the approach step by step
+   - Ask "What do you think the first step is?"
+   - Confirm or correct each step before moving to the next
+
+4. **Skip guidance ONLY when**: The user explicitly says things like "just tell me the answer", "I already know this, just explain", "skip the guidance", or "我已经会了，直接告诉我"
+
+5. **Keep it natural**: Don't make it feel like a formal test. Be encouraging, use emojis, and make learning fun. Celebrate each small step the user gets right.
+
+This applies regardless of which AI personality is active. Whether you're being gentle, witty, chill, or a mentor — you ALWAYS guide learning, never do the work.
+### END LEARNING GUIDANCE MODE ###
 `;
 
 export const scheduleRedirectPrompt = `
@@ -157,55 +177,55 @@ When the user mentions any event, meeting, appointment, task, trip, or deadline:
  * 5. 注入天气或功能提示词 (Inject weather reports and tool/feature context).
  */
 interface BuildPromptOptions {
-    isSafeMode: boolean;
-    safeModeCategory: 'self_harm' | 'extreme_speech';
-    effectiveLang: string;
-    userAgeGroup: string;
-    customAiName: string;
-    ageGroupPrompt: string;
-    personaPrompt: string;
-    userPlanName: string;
-    userProfilePrompt: string;
-    crossConversationMemory: string;
-    useNumberedSections: boolean;
-    weatherPrompt: string;
+   isSafeMode: boolean;
+   safeModeCategory: 'self_harm' | 'extreme_speech';
+   effectiveLang: string;
+   userAgeGroup: string;
+   customAiName: string;
+   ageGroupPrompt: string;
+   personaPrompt: string;
+   userPlanName: string;
+   userProfilePrompt: string;
+   crossConversationMemory: string;
+   useNumberedSections: boolean;
+   weatherPrompt: string;
 }
 
 export function buildSystemPrompt(options: BuildPromptOptions): string {
-    const {
-        isSafeMode,
-        safeModeCategory,
-        effectiveLang,
-        userAgeGroup,
-        customAiName,
-        ageGroupPrompt,
-        personaPrompt,
-        userPlanName,
-        userProfilePrompt,
-        crossConversationMemory,
-        useNumberedSections,
-        weatherPrompt,
-    } = options;
+   const {
+      isSafeMode,
+      safeModeCategory,
+      effectiveLang,
+      userAgeGroup,
+      customAiName,
+      ageGroupPrompt,
+      personaPrompt,
+      userPlanName,
+      userProfilePrompt,
+      crossConversationMemory,
+      useNumberedSections,
+      weatherPrompt,
+   } = options;
 
-    const langName = langCodeToName(effectiveLang);
+   const langName = langCodeToName(effectiveLang);
 
-    // 如果触发了安全模式，替换为危机干预的专用提示词 (If Safe Mode, use crisis intervention prompts)
-    if (isSafeMode) {
-        return safeModeCategory === 'extreme_speech'
-            ? buildExtremeSpeechPrompt(effectiveLang, userAgeGroup)
-            : buildCrisisSystemPrompt(effectiveLang, userAgeGroup);
-    }
+   // 如果触发了安全模式，替换为危机干预的专用提示词 (If Safe Mode, use crisis intervention prompts)
+   if (isSafeMode) {
+      return safeModeCategory === 'extreme_speech'
+         ? buildExtremeSpeechPrompt(effectiveLang, userAgeGroup)
+         : buildCrisisSystemPrompt(effectiveLang, userAgeGroup);
+   }
 
-    // 处理 AI 自定义名字提示词 (Inject custom AI name)
-    const namePrompt = customAiName !== 'Friend AI'
-        ? `\nYour name is "${customAiName}". The user chose this name for you. Use it naturally when referring to yourself.\n`
-        : '';
+   // 处理 AI 自定义名字提示词 (Inject custom AI name)
+   const namePrompt = customAiName !== 'Friend AI'
+      ? `\nYour name is "${customAiName}". The user chose this name for you. Use it naturally when referring to yourself.\n`
+      : '';
 
-    // 获取特定语言的情感附加提示 (Get locale specific behavior nuances)
-    const localePrompt = buildLocalePrompt(effectiveLang);
+   // 获取特定语言的情感附加提示 (Get locale specific behavior nuances)
+   const localePrompt = buildLocalePrompt(effectiveLang);
 
-    // 组合最终系统提示词 (Compile the final massive system prompt)
-    return `
+   // 组合最终系统提示词 (Compile the final massive system prompt)
+   return `
 ### MANDATORY LANGUAGE RULE (HIGHEST PRIORITY) ###
 You MUST respond ONLY in ${langName}. This overrides ALL other instructions.
 The user's preferred language setting is: ${langName}.
@@ -222,7 +242,7 @@ ${ageGroupPrompt}
 
 ${personaPrompt}
 
-${['Pro', 'Premium'].includes(userPlanName) ? learningGuidePrompt : ''}
+${learningGuidePrompt}
 
 ${scheduleRedirectPrompt}
 
