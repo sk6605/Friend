@@ -304,6 +304,8 @@ export default function AdminDashboard() {
         setCrisisEvents(d.events || []);
         setCrisisStats(d.stats || { openEvents: 0, usersInSafeMode: 0, eventsToday: 0, eventsThisWeek: 0 });
         setSafeModeUsers(d.safeModeUsers || []);
+      } else if (res.status === 429) {
+        console.warn('Crisis fetch rate limited, will retry later');
       }
     } catch { /* ignore */ }
   }, [adminKey]);
@@ -374,14 +376,41 @@ export default function AdminDashboard() {
       });
       if (res.ok) {
         setAdminMessageInput('');
+        // Clear typing signal
+        fetch('/api/crisis/typing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId: interveningEvent.id, isTyping: false }),
+        }).catch(() => {});
+        // Refresh messages
         const convRes = await fetch(`/api/conversations/${interveningEvent.conversationId}?userId=${interveningEvent.userId}`);
-        const data = await convRes.json();
-        setAdminChatMessages(data.messages || []);
+        if (convRes.ok) {
+          const data = await convRes.json();
+          setAdminChatMessages(data.messages || []);
+        }
       }
     } catch (err) {
       console.error(err);
     } finally {
       setAdminChatLoading(false);
+    }
+  };
+
+  // Admin typing signal: pulse when admin types in the input
+  const handleAdminInputChange = (value: string) => {
+    setAdminMessageInput(value);
+    if (interveningEvent && value.trim()) {
+      fetch('/api/crisis/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: interveningEvent.id, isTyping: true }),
+      }).catch(() => {});
+    } else if (interveningEvent && !value.trim()) {
+      fetch('/api/crisis/typing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: interveningEvent.id, isTyping: false }),
+      }).catch(() => {});
     }
   };
 
@@ -1257,8 +1286,8 @@ export default function AdminDashboard() {
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
                     ? 'bg-purple-600 text-white'
-                    : (msg.content.includes('[Safety Support]') || msg.content.includes('[Admin]'))
-                      ? 'bg-emerald-600/20 text-emerald-100 border border-emerald-500/30'
+                    : (msg.content.includes('[Lumi Support Team]') || msg.content.includes('[Safety Support]') || msg.content.includes('[Admin]'))
+                      ? 'bg-red-600/20 text-red-100 border border-red-500/30'
                       : 'bg-slate-800 text-slate-200'
                     }`}>
                     <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -1273,10 +1302,10 @@ export default function AdminDashboard() {
                 <input
                   type="text"
                   value={adminMessageInput}
-                  onChange={(e) => setAdminMessageInput(e.target.value)}
+                  onChange={(e) => handleAdminInputChange(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendAdminMessage()}
-                  placeholder="Type a message as Support Team..."
-                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  placeholder="Type a message as Lumi Support Team..."
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500 transition-colors"
                 />
                 <button
                   onClick={handleSendAdminMessage}

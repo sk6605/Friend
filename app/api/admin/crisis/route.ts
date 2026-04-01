@@ -117,6 +117,11 @@ export async function PATCH(req: NextRequest) {
         data,
       });
 
+      // If resolving, also deactivate safe mode for the user
+      if (status === 'resolved' && updated.userId) {
+        await deactivateSafeMode(updated.userId, 'admin', notes || 'Admin resolved crisis event');
+      }
+
       return Response.json({ ok: true, event: updated });
     }
 
@@ -163,12 +168,12 @@ export async function PATCH(req: NextRequest) {
         return Response.json({ error: 'Conversation not found for this event' }, { status: 404 });
       }
 
-      // Add message as assistant with [Support] prefix
+      // Add message as assistant with warning indicator prefix
       const message = await prisma.message.create({
         data: {
           conversationId: event.conversationId,
           role: 'assistant',
-          content: `🚨 **[Safety Support]**\n\n${content}`,
+          content: `⚠️ **[Lumi Support Team]**\n\n${content}`,
         },
       });
 

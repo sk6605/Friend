@@ -51,6 +51,7 @@ function getFileIcon(type: string, name: string): { icon: string; color: string 
 
 export default function ChatBubble({ role, content, messageId, createdAt, onDelete, profilePicture, nickname, isHighlighted, fileAttachments }: Props) {
   const isUser = role === 'user';
+  const isSupportMessage = !isUser && (content.includes('[Lumi Support Team]') || content.includes('[Safety Support]'));
   const [showConfirm, setShowConfirm] = useState(false);
 
   // Parse fileAttachments if it's a string (from DB)
@@ -100,7 +101,9 @@ export default function ChatBubble({ role, content, messageId, createdAt, onDele
           overflow-hidden
           ${isUser
             ? 'bg-purple-600 dark:bg-purple-700 text-white rounded-br-md shadow-md shadow-purple-200/40 dark:shadow-purple-900/40'
-            : 'bg-white/80 dark:bg-[#1e1b2e] text-neutral-700 dark:text-neutral-200 border border-purple-100/40 dark:border-purple-800/30 rounded-bl-md shadow-sm'
+            : isSupportMessage
+              ? 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-2 border-red-300/60 dark:border-red-700/40 rounded-bl-md shadow-sm shadow-red-200/30 dark:shadow-red-900/20'
+              : 'bg-white/80 dark:bg-[#1e1b2e] text-neutral-700 dark:text-neutral-200 border border-purple-100/40 dark:border-purple-800/30 rounded-bl-md shadow-sm'
           }
         `}
       >

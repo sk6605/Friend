@@ -252,7 +252,7 @@ export async function POST(req: NextRequest) {
               userId,
               conversationId: conversation.id,
               riskLevel: { gte: 2 },
-              status: { in: ['open', 'escalated', 'acknowledged'] },
+              status: { in: ['open', 'escalated', 'acknowledged', 'intervening'] },
             },
             select: { id: true, classificationReason: true, status: true },
           });

@@ -23,11 +23,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Find the latest unresolved crisis event for this user
+    // Find the latest unresolved crisis event for this user (include 'intervening')
     const latestEvent = await prisma.crisisEvent.findFirst({
       where: {
         userId,
-        status: { in: ['open', 'acknowledged'] },
+        status: { in: ['open', 'acknowledged', 'intervening'] },
       },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -38,17 +38,20 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Check if admin is typing (within last 5 seconds)
+    // Check if admin is typing (within last 8 seconds for network lag)
     const isTyping =
       latestEvent?.isAdminTyping &&
       latestEvent.lastAdminTypingAt &&
-      new Date().getTime() - new Date(latestEvent.lastAdminTypingAt).getTime() < 5000;
+      new Date().getTime() - new Date(latestEvent.lastAdminTypingAt).getTime() < 8000;
+
+    // isResolved = user is no longer in safeMode AND no active crisis events remain
+    const isResolved = !user.safeMode;
 
     return NextResponse.json({
       safeMode: user.safeMode,
       activeEventId: latestEvent?.id || null,
       isAdminTyping: !!isTyping,
-      isResolved: !user.safeMode && (!latestEvent || latestEvent.status === 'resolved'),
+      isResolved,
     });
   } catch (error) {
     console.error('Crisis status error:', error);
