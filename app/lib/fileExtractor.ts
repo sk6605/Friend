@@ -56,7 +56,10 @@ async function extractFromPDF(filePath: string): Promise<string> {
 async function extractFromDocx(filePath: string): Promise<string> {
   try {
     const fileBuffer = fs.readFileSync(filePath);
-    const result = await extractRawText({ arrayBuffer: fileBuffer.buffer });
+    // Create a proper ArrayBuffer copy — Buffer.buffer can be a shared ArrayBuffer
+    // which causes mammoth to fail silently in some Node.js / Vercel environments
+    const arrayBuffer = new Uint8Array(fileBuffer).buffer;
+    const result = await extractRawText({ arrayBuffer });
     return result.value || '[DOCX has no extractable text]';
   } catch (error) {
     throw new Error(`DOCX extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -146,7 +149,10 @@ function formatSegmentedText(text: string): string {
 
 async function extractFromExcel(filePath: string): Promise<string> {
   try {
-    const workbook = XLSX.readFile(filePath);
+    // Read as buffer and use XLSX.read() instead of XLSX.readFile()
+    // readFile uses filesystem access which is unreliable on Vercel serverless
+    const fileBuffer = fs.readFileSync(filePath);
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
     let text = '';
     
     workbook.SheetNames.forEach(sheetName => {
