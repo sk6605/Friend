@@ -79,7 +79,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
           setCurrentPersona(data.persona);
           setSelectedPersona(data.persona);
         }
-        
+
         // Set subscription flags
         const planName = data?.subscription?.plan?.name || 'free';
         setIsPremium(planName === 'premium');

@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     // Validate all files before processing
     for (const file of files) {
       if (file.size > maxFileSize) {
-        const sizeMsg = maxFileSize >= 1024 * 1024 
+        const sizeMsg = maxFileSize >= 1024 * 1024
           ? `${maxFileSize / (1024 * 1024)} MB`
           : `${Math.round(maxFileSize / 1024)} KB`;
         return Response.json(

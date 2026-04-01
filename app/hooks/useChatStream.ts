@@ -242,7 +242,7 @@ export function useChatStream({
                     url: fileUrls[i],
                     size: meta.size,
                     type: meta.type,
-                  }))
+                }))
                 : undefined;
 
             // 将用户消息存入数据库 (Fire-and-forget: 发出去就不用等结果了)

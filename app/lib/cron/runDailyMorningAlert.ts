@@ -227,9 +227,10 @@ async function hasNotificationToday(userId: string, type: string, todayStartUTC:
 // ─── Main Cron Function ──────────────────────────────────────
 
 export async function runDailyMorningAlert(): Promise<{ alertsSent: number; usersChecked: number }> {
+  const DEFAULT_CITY = 'Kuala Lumpur';
+
   const users = await prisma.user.findMany({
     where: {
-      city: { not: null },
       subscription: {
         plan: {
           name: { in: ['pro', 'premium'] },
@@ -249,17 +250,17 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
   let alertCount = 0;
 
   for (const user of users) {
-    if (!user.city) continue;
+    const userCity = user.city || DEFAULT_CITY;
 
     try {
       // Fetch weather data
       const [weatherData, forecastData] = await Promise.all([
-        fetchWeather(user.city),
-        fetchForecast(user.city),
+        fetchWeather(userCity),
+        fetchForecast(userCity),
       ]);
 
       if (!forecastData) {
-        console.warn(`No forecast data for ${user.city}, skipping user ${user.id}`);
+        console.warn(`No forecast data for ${userCity}, skipping user ${user.id}`);
         continue;
       }
 
@@ -301,7 +302,7 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
         nickname,
         language: lang,
         persona,
-        city: user.city,
+        city: userCity,
         dayOfWeek,
         date: getDateSeed(),
         season: getSeasonContext(),
@@ -343,7 +344,7 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
             type: 'morning_alert',
             title: morningTitle,
             message: messages.morning,
-            data: JSON.stringify({ city: user.city, rain: rainInfo.willRain, temp, humidity }),
+            data: JSON.stringify({ city: userCity, rain: rainInfo.willRain, temp, humidity }),
           },
           {
             userId: user.id,
@@ -385,7 +386,7 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
       }
 
       alertCount++;
-      console.log(`4 persona-driven notifications generated for ${nickname} (${user.id}) — persona: ${persona}, city: ${user.city}`);
+      console.log(`4 persona-driven notifications generated for ${nickname} (${user.id}) — persona: ${persona}, city: ${userCity}`);
     } catch (err) {
       console.error(`Morning alert failed for user ${user.id}:`, err);
     }
