@@ -43,8 +43,8 @@ export async function GET() {
           {
             name: 'pro',
             displayName: 'Pro',
-            price: 9.99,
-            yearlyPrice: 99.99,
+            price: 29,
+            yearlyPrice: 304.24,
             dailyMessageLimit: -1,
             maxFileUploads: 5,
             maxFileSizeMB: 50,
@@ -52,6 +52,8 @@ export async function GET() {
             priorityResponse: true,
             customAiPersonality: false,
             advancedAnalytics: true,
+            stripePriceMonthly: 'price_1THHyKA7TElDOFCIqWQ6BiNp',
+            stripePriceYearly: 'price_1THI1vA7TElDOFCIdYLboDHz',
             description: 'For power users who want more',
             features: JSON.stringify([
               'Unlimited messages',
@@ -67,8 +69,8 @@ export async function GET() {
           {
             name: 'premium',
             displayName: 'Premium',
-            price: 19.99,
-            yearlyPrice: 199.99,
+            price: 89,
+            yearlyPrice: 939.84,
             dailyMessageLimit: -1,
             maxFileUploads: 10,
             maxFileSizeMB: 100,
@@ -76,6 +78,8 @@ export async function GET() {
             priorityResponse: true,
             customAiPersonality: true,
             advancedAnalytics: true,
+            stripePriceMonthly: 'price_1THHyrA7TElDOFCI0MhihrAH',
+            stripePriceYearly: 'price_1THI3PA7TElDOFCIFfYlGPqT',
             description: 'The ultimate AI companion experience',
             features: JSON.stringify([
               'Everything in Pro',

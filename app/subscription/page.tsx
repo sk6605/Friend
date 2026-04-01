@@ -258,7 +258,7 @@ export default function SubscriptionPage() {
           </button>
           <span className={`text-sm ${billingInterval === 'yearly' ? 'text-white font-medium' : 'text-slate-500'}`}>
             Yearly
-            <span className="ml-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-medium">Save up to 17%</span>
+            <span className="ml-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-medium">Save 12%</span>
           </span>
         </div>
 
@@ -321,13 +321,18 @@ export default function SubscriptionPage() {
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-baseline gap-1">
+                      <div className="flex items-baseline gap-1 flex-wrap">
+                        {billingInterval === 'yearly' && (
+                          <span className="text-lg text-slate-500 line-through mr-2">
+                            ${(plan.price * 12).toFixed(2)}
+                          </span>
+                        )}
                         <span className="text-sm text-slate-400">$</span>
                         <span className="text-4xl font-bold">{price.toFixed(2)}</span>
                         <span className="text-sm text-slate-400">/{billingInterval === 'yearly' ? 'year' : 'month'}</span>
                       </div>
-                      {billingInterval === 'yearly' && savings > 0 && (
-                        <p className="text-xs text-emerald-400 mt-1">Save {savings}% vs monthly</p>
+                      {billingInterval === 'yearly' && (
+                        <p className="text-xs text-emerald-400 mt-1">Save 12% vs monthly</p>
                       )}
                     </div>
                   )}

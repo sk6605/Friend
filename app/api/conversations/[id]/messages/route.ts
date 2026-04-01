@@ -22,7 +22,7 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { role, content, userId } = body;
+    const { role, content, userId, fileAttachments } = body;
 
     // Verify conversation exists and belongs to the user
     if (userId) {
@@ -43,6 +43,7 @@ export async function POST(
         role,
         content,
         conversationId,
+        fileAttachments: fileAttachments || undefined,
       },
     });
 

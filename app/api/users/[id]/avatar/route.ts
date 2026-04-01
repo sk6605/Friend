@@ -1,23 +1,22 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/app/lib/db';
-import * as fs from 'fs';
-import * as path from 'path';
 import * as crypto from 'crypto';
+import { uploadToR2, deleteFromR2, getR2KeyFromUrl } from '@/app/lib/r2';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
 
 /**
  * POST /api/users/[id]/avatar
- * Uploads a new profile picture.
+ * Uploads a new profile picture to Cloudflare R2.
  *
  * Logic:
  * 1. Validates file type (Image) and size (Max 5MB).
- * 2. Deletes old avatar if exists.
- * 3. Saves new file to `public/uploads/avatars`.
- * 4. Updates User record.
+ * 2. Deletes old avatar from R2 if exists.
+ * 3. Uploads new file to R2 bucket under `avatars/` prefix.
+ * 4. Updates User record with public URL.
  *
- * Services: Prisma, FileSystem
+ * Services: Prisma, Cloudflare R2
  */
 export async function POST(
   req: NextRequest,
@@ -49,28 +48,24 @@ export async function POST(
       return Response.json({ error: 'File too large. Max 5MB.' }, { status: 400 });
     }
 
-    // Delete old avatar if it exists
+    // Delete old avatar from R2 if it exists
     if (user.profilePicture) {
-      const oldPath = path.join(process.cwd(), 'public', user.profilePicture);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
+      const oldKey = getR2KeyFromUrl(user.profilePicture);
+      if (oldKey) {
+        try {
+          await deleteFromR2(oldKey);
+        } catch (err) {
+          console.warn('Failed to delete old avatar from R2:', err);
+        }
       }
     }
 
-    // Save new avatar
-    const ext = file.name.split('.').pop() || 'jpg';
-    const filename = `avatar_${userId}_${crypto.randomBytes(4).toString('hex')}.${ext}`;
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');
-
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filePath = path.join(uploadDir, filename);
+    // Upload new avatar to R2
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const key = `avatars/avatar_${userId}_${crypto.randomBytes(4).toString('hex')}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
 
-    const publicUrl = `/uploads/avatars/${filename}`;
+    const publicUrl = await uploadToR2(key, buffer, file.type);
 
     // Update user record
     await prisma.user.update({
@@ -88,7 +83,7 @@ export async function POST(
 
 /**
  * DELETE /api/users/[id]/avatar
- * Remove the user's profile picture.
+ * Remove the user's profile picture from R2.
  */
 export async function DELETE(
   req: NextRequest,
@@ -103,9 +98,13 @@ export async function DELETE(
     }
 
     if (user.profilePicture) {
-      const oldPath = path.join(process.cwd(), 'public', user.profilePicture);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
+      const key = getR2KeyFromUrl(user.profilePicture);
+      if (key) {
+        try {
+          await deleteFromR2(key);
+        } catch (err) {
+          console.warn('Failed to delete avatar from R2:', err);
+        }
       }
     }
 

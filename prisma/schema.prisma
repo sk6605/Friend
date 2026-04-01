@@ -62,6 +62,7 @@ model User {
   crisisEvents  CrisisEvent[]
   growthReports GrowthReport[]
   challenges    UserChallenge[]
+  files         UserFile[]
 }
 
 // ─── Gamification System ────────────────────────────────────────
@@ -120,9 +121,28 @@ model Message {
 
   role           String
   content        String   @db.LongText  
+  fileAttachments String? @db.Text // JSON array of { name, url, size, type }
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+// ─── User File Storage (R2) ──────────────────────────────────────
+model UserFile {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String          // Original filename
+  url       String @db.Text // R2 public URL
+  r2Key     String          // R2 object key for deletion
+  size      Int             // File size in bytes
+  type      String          // MIME type
+  
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model DailyInsight {

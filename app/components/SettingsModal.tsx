@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import FileManagerView from '@/app/components/FileManagerView';
 import { COUNTRIES } from '@/app/lib/locations';
 import NotificationSettings from './NotificationSettings';
 import { getAllPersonas, type PersonaKey } from '@/app/lib/ai/personaPrompts';
@@ -14,7 +15,7 @@ interface SettingsModalProps {
   onProfileUpdate?: () => void;
 }
 
-type SettingsView = 'menu' | 'personalization' | 'security' | 'email' | 'language' | 'avatar' | 'location' | 'dataControl' | 'notifications' | 'persona';
+type SettingsView = 'menu' | 'personalization' | 'security' | 'email' | 'language' | 'avatar' | 'location' | 'dataControl' | 'notifications' | 'persona' | 'files';
 
 const LANGUAGES = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
@@ -326,7 +327,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
               <button
                 onClick={() => {
                   // Sub-views go back to their parent category, categories go to menu
-                  const personalizationViews = ['avatar', 'language', 'persona', 'location'];
+                  const personalizationViews = ['avatar', 'language', 'persona', 'location', 'files'];
                   const securityViews = ['email', 'dataControl', 'notifications'];
                   if (personalizationViews.includes(view)) {
                     setView('personalization');
@@ -356,6 +357,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
               {view === 'dataControl' && 'Data Control'}
               {view === 'notifications' && 'Notifications'}
               {view === 'persona' && 'AI Personality'}
+              {view === 'files' && 'My Files'}
             </h2>
           </div>
           <button
@@ -526,6 +528,27 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+
+              <button
+                onClick={() => { setView('files'); resetForm(); setError(''); setSuccess(''); }}
+                className="
+                  w-full flex items-center gap-3 px-4 py-3.5 rounded-xl
+                  text-left text-sm text-neutral-700 dark:text-neutral-200
+                  hover:bg-purple-50 dark:hover:bg-white/5 transition-all duration-200
+                  border border-neutral-100 dark:border-neutral-700 hover:border-purple-200 dark:hover:border-purple-700/50
+                "
+              >
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                </svg>
+                <div>
+                  <div className="font-medium">My Files</div>
+                  <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">View & manage uploaded files</div>
+                </div>
+                <svg className="w-4 h-4 text-neutral-300 dark:text-neutral-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
           )}
 
@@ -596,6 +619,55 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+
+              {/* Legal links */}
+              <div className="pt-2 mt-2 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    w-full flex items-center gap-3 px-4 py-3.5 rounded-xl
+                    text-left text-sm text-neutral-700 dark:text-neutral-200
+                    hover:bg-purple-50 dark:hover:bg-white/5 transition-all duration-200
+                    border border-neutral-100 dark:border-neutral-700 hover:border-purple-200 dark:hover:border-purple-700/50
+                  "
+                >
+                  <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <div>
+                    <div className="font-medium">Privacy Policy</div>
+                    <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">How we handle your data</div>
+                  </div>
+                  <svg className="w-4 h-4 text-neutral-300 dark:text-neutral-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </a>
+
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    w-full flex items-center gap-3 px-4 py-3.5 rounded-xl
+                    text-left text-sm text-neutral-700 dark:text-neutral-200
+                    hover:bg-purple-50 dark:hover:bg-white/5 transition-all duration-200
+                    border border-neutral-100 dark:border-neutral-700 hover:border-purple-200 dark:hover:border-purple-700/50
+                  "
+                >
+                  <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                  </svg>
+                  <div>
+                    <div className="font-medium">Terms of Service</div>
+                    <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">Platform rules & disclaimers</div>
+                  </div>
+                  <svg className="w-4 h-4 text-neutral-300 dark:text-neutral-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </a>
+              </div>
             </div>
           )}
 
@@ -947,6 +1019,11 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                 {loading ? 'Updating...' : 'Update Email'}
               </button>
             </form>
+          )}
+
+          {/* File Management view */}
+          {view === 'files' && (
+            <FileManagerView userId={userId} />
           )}
         </div>
       </div>

@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { extractTextFromFile } from '@/app/lib/fileExtractor';
+import { uploadToR2 } from '@/app/lib/r2';
+import { prisma } from '@/app/lib/db';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const MAX_FILES = 5;
@@ -36,6 +38,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const files = formData.getAll('files') as File[];
+    const userId = (formData.get('userId') as string) || null;
 
     if (!files || files.length === 0) {
       return Response.json({ error: 'No files uploaded' }, { status: 400 });
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate all files before writing any
+    // Validate all files before processing
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE) {
         return Response.json(
@@ -64,46 +67,63 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Use /tmp for file storage (works on Vercel serverless)
-    const uploadDir = '/tmp/uploads';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const results: { url: string; name: string; size: number; type: string; extractedText?: string }[] = [];
+    const results: { url: string; name: string; size: number; type: string; r2Key: string; extractedText?: string }[] = [];
 
     for (const file of files) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // Secure unique filename: random hex + safe extension only
       const ext = path.extname(file.name).toLowerCase().replace(/[^a-z0-9.]/g, '');
       const uniqueName = `${crypto.randomBytes(16).toString('hex')}${ext}`;
-      const filePath = path.join(uploadDir, uniqueName);
 
-      fs.writeFileSync(filePath, buffer);
-
-      // Extract text content immediately (in the same serverless invocation)
+      // ─── Text extraction for documents ───
+      // Write to /tmp temporarily ONLY for text extraction, then delete
       const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext);
       let extractedText: string | undefined;
+
       if (!isImage) {
+        const tmpDir = '/tmp/uploads';
+        if (!fs.existsSync(tmpDir)) {
+          fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        const tmpPath = path.join(tmpDir, uniqueName);
         try {
-          extractedText = await extractTextFromFile(filePath, file.name);
+          fs.writeFileSync(tmpPath, buffer);
+          extractedText = await extractTextFromFile(tmpPath, file.name);
         } catch (e) {
           console.error(`Text extraction failed for ${file.name}:`, e);
+        } finally {
+          // Always clean up temp file
+          try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
         }
       }
 
-      // Clean up temp file
-      try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+      // ─── Upload to Cloudflare R2 for persistent storage ───
+      const r2Key = `uploads/${uniqueName}`;
+      const r2Url = await uploadToR2(r2Key, buffer, file.type || 'application/octet-stream');
 
       results.push({
-        url: `/uploads/${uniqueName}`,
+        url: r2Url,
         name: file.name,
         size: file.size,
         type: file.type,
+        r2Key,
         extractedText,
       });
+
+      // Record file in UserFile table for file history
+      if (userId) {
+        prisma.userFile.create({
+          data: {
+            userId,
+            name: file.name,
+            url: r2Url,
+            r2Key,
+            size: file.size,
+            type: file.type,
+          },
+        }).catch(err => console.error('Failed to save file record:', err));
+      }
     }
 
     return Response.json({ files: results });

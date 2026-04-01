@@ -2,6 +2,13 @@
 
 import { useState } from 'react';
 
+interface FileAttachment {
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+}
+
 interface Props {
   role: 'user' | 'assistant';
   content: string;
@@ -11,6 +18,7 @@ interface Props {
   profilePicture?: string | null;
   nickname?: string;
   isHighlighted?: boolean;
+  fileAttachments?: FileAttachment[];
 }
 
 function formatTime(dateStr: string): string {
@@ -24,9 +32,35 @@ function formatTime(dateStr: string): string {
   return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
 }
 
-export default function ChatBubble({ role, content, messageId, createdAt, onDelete, profilePicture, nickname, isHighlighted }: Props) {
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileIcon(type: string, name: string): { icon: string; color: string } {
+  const ext = name.split('.').pop()?.toLowerCase() || '';
+  if (type.startsWith('image/')) return { icon: '🖼️', color: 'bg-pink-100 dark:bg-pink-900/30' };
+  if (['pdf'].includes(ext) || type === 'application/pdf') return { icon: '📄', color: 'bg-red-100 dark:bg-red-900/30' };
+  if (['doc', 'docx'].includes(ext)) return { icon: '📝', color: 'bg-blue-100 dark:bg-blue-900/30' };
+  if (['ppt', 'pptx'].includes(ext)) return { icon: '📊', color: 'bg-orange-100 dark:bg-orange-900/30' };
+  if (['xls', 'xlsx', 'csv'].includes(ext)) return { icon: '📈', color: 'bg-green-100 dark:bg-green-900/30' };
+  if (['txt', 'md', 'json'].includes(ext)) return { icon: '📃', color: 'bg-neutral-100 dark:bg-neutral-800' };
+  return { icon: '📎', color: 'bg-neutral-100 dark:bg-neutral-800' };
+}
+
+export default function ChatBubble({ role, content, messageId, createdAt, onDelete, profilePicture, nickname, isHighlighted, fileAttachments }: Props) {
   const isUser = role === 'user';
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Parse fileAttachments if it's a string (from DB)
+  let parsedAttachments: FileAttachment[] = [];
+  if (fileAttachments) {
+    parsedAttachments = fileAttachments;
+  }
+
+  // Split content: remove the 【已上传文件】 line from display since we'll show file cards
+  const displayContent = content.replace(/\n\n【已上传文件】.+$/, '').trim();
 
   if (role === 'assistant' && content === '') {
     return (
@@ -70,7 +104,46 @@ export default function ChatBubble({ role, content, messageId, createdAt, onDele
           }
         `}
       >
-        <div className="px-4 py-3 whitespace-pre-wrap">{content}</div>
+        <div className="px-4 py-3 whitespace-pre-wrap">{displayContent}</div>
+
+        {/* File Attachments */}
+        {parsedAttachments.length > 0 && (
+          <div className={`px-3 pb-3 space-y-1.5 ${displayContent ? 'pt-0' : 'pt-3'}`}>
+            {parsedAttachments.map((file, i) => {
+              const { icon, color } = getFileIcon(file.type, file.name);
+              return (
+                <a
+                  key={i}
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`
+                    flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all duration-200
+                    ${isUser
+                      ? 'bg-white/15 hover:bg-white/25'
+                      : 'bg-neutral-50 dark:bg-white/5 hover:bg-neutral-100 dark:hover:bg-white/10 border border-neutral-200/50 dark:border-purple-800/20'
+                    }
+                  `}
+                >
+                  <div className={`w-8 h-8 rounded-lg ${isUser ? 'bg-white/20' : color} flex items-center justify-center shrink-0`}>
+                    <span className="text-sm">{icon}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-xs font-medium truncate ${isUser ? 'text-white' : 'text-neutral-700 dark:text-neutral-200'}`}>
+                      {file.name}
+                    </div>
+                    <div className={`text-[10px] ${isUser ? 'text-white/60' : 'text-neutral-400 dark:text-neutral-500'}`}>
+                      {formatFileSize(file.size)}
+                    </div>
+                  </div>
+                  <svg className={`w-3.5 h-3.5 shrink-0 ${isUser ? 'text-white/50' : 'text-neutral-400 dark:text-neutral-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </a>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* User avatar — right side */}

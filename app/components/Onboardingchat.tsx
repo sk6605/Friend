@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 type Step =
   | 'welcome'
@@ -57,6 +58,7 @@ export default function OnboardingChat({
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
 
 
@@ -92,6 +94,10 @@ export default function OnboardingChat({
   };
 
   const finishAccount = async (d: Record<string, unknown>) => {
+    if (!agreedToTerms) {
+      setError('You must agree to the Privacy Policy and Terms of Service to continue.');
+      return;
+    }
     setStep('creating');
     try {
       const userId = await createUser(d);
@@ -377,6 +383,31 @@ export default function OnboardingChat({
         {/* AI name decision step — two buttons */}
         {step === 'ask_ai_name' && (
           <div className="space-y-3">
+            {/* Privacy & Terms consent */}
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-purple-800/20 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => { setAgreedToTerms(e.target.checked); setError(''); }}
+                className="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-purple-700 text-purple-600 focus:ring-purple-500 accent-purple-600"
+              />
+              <span className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                I have read and agree to the{' '}
+                <Link href="/privacy" target="_blank" className="text-purple-500 hover:text-purple-600 underline underline-offset-2">Privacy Policy</Link>
+                {' '}and{' '}
+                <Link href="/terms" target="_blank" className="text-purple-500 hover:text-purple-600 underline underline-offset-2">Terms of Service</Link>
+              </span>
+            </label>
+
+            {error && (
+              <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {error}
+              </p>
+            )}
+
             <button
               onClick={handleAiNameYes}
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold text-sm shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"

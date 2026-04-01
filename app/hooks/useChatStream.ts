@@ -9,6 +9,7 @@ export interface Message {
     role: 'user' | 'assistant';
     content: string;
     createdAt?: string;
+    fileAttachments?: { name: string; url: string; size: number; type: string }[];
 }
 
 /**
@@ -206,6 +207,7 @@ export function useChatStream({
             if (files && files.length > 0) {
                 const formData = new FormData();
                 files.forEach(f => formData.append('files', f));
+                formData.append('userId', userId);
 
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
@@ -224,12 +226,26 @@ export function useChatStream({
                 }
             }
 
+            // Build file attachments metadata for message storage
+            const fileAttachments = fileUrls.length > 0
+                ? fileMetadata.map((meta, i) => ({
+                    name: meta.name,
+                    url: fileUrls[i],
+                    size: meta.size,
+                    type: meta.type,
+                  }))
+                : undefined;
+
             // 将用户消息存入数据库 (Fire-and-forget: 发出去就不用等结果了)
             // Save user message to DB asynchronously
             fetch(`/api/conversations/${convId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role: 'user', content: displayContent }),
+                body: JSON.stringify({
+                    role: 'user',
+                    content: displayContent,
+                    fileAttachments: fileAttachments ? JSON.stringify(fileAttachments) : undefined,
+                }),
             });
 
             // 4. 发起核心的聊天流式请求 (Stream with auto-retry)

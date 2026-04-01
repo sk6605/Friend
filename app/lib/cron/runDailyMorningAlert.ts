@@ -1,13 +1,14 @@
 import { prisma } from '@/app/lib/db';
 import { fetchWeather, fetchForecast, detectRainToday, detectRainTomorrow } from '@/app/lib/weather';
 import { sendPushNotification } from '@/app/lib/onesignal';
+import { getPersonaPrompt } from '@/app/lib/ai/personaPrompts';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ─── AI Message Generators ──────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────
 
 function getLangName(lang: string): string {
   const map: Record<string, string> = {
@@ -17,146 +18,17 @@ function getLangName(lang: string): string {
   return map[lang] || 'English';
 }
 
-async function generateMorningMessage(
-  city: string,
-  temp: number,
-  humidity: number,
-  isRainy: boolean,
-  rainPeriods: string,
-  language: string,
-  nickname: string
-): Promise<string> {
-  const langName = getLangName(language);
-  const weatherDetail = `Current temperature: ${temp}°C, humidity: ${humidity}%.`;
-  const rainDetail = isRainy
-    ? `Today's forecast shows rain at: ${rainPeriods}. You MUST mention the specific time(s) and remind them to bring an umbrella.`
-    : 'No rain expected today. It will be mostly sunny or cloudy. Suggest sunscreen or staying hydrated.';
-
-  const prompt = `You are ${nickname}'s warm, caring best friend. ${nickname} lives in ${city}.
-${weatherDetail}
-${rainDetail}
-Write a short, heartfelt morning push notification (max 100 chars).
-Include the temperature and humidity naturally in your message.
-${isRainy ? 'MUST include specific rain times.' : ''}
-Tone: deeply loved, warm, personal — like a message from someone who truly cares.
-Respond ONLY in ${langName}. No quotes, no extra text.`;
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'system', content: prompt }],
-      temperature: 0.8,
-      max_tokens: 150,
-    });
-    return completion.choices[0].message?.content?.trim() || getMorningFallback(nickname, city, temp, humidity, isRainy, language);
-  } catch {
-    return getMorningFallback(nickname, city, temp, humidity, isRainy, language);
-  }
+function getSeasonContext(): string {
+  const month = new Date().getMonth() + 1;
+  if (month >= 3 && month <= 5) return 'spring — flowers, fresh air, new beginnings';
+  if (month >= 6 && month <= 8) return 'summer — hot days, sunshine, staying cool';
+  if (month >= 9 && month <= 11) return 'autumn — cool breezes, warm drinks, cozy vibes';
+  return 'winter — chilly days, bundling up, hot cocoa weather';
 }
 
-function getMorningFallback(nickname: string, city: string, temp: number, humidity: number, isRainy: boolean, lang: string): string {
-  if (lang === 'zh') {
-    return isRainy
-      ? `早安 ${nickname}💕 ${city}今天${temp}°C，湿度${humidity}%，会下雨，记得带伞哦~`
-      : `早安 ${nickname}☀️ ${city}今天${temp}°C，湿度${humidity}%，天气不错，记得防晒！`;
-  }
-  return isRainy
-    ? `Good morning ${nickname}💕 ${city} is ${temp}°C, ${humidity}% humidity today. Rain expected — grab your umbrella!`
-    : `Good morning ${nickname}☀️ ${city} is ${temp}°C, ${humidity}% humidity. Beautiful day — stay hydrated!`;
-}
-
-async function generateLunchMessage(nickname: string, language: string, weatherSummary: string, dayOfWeek: string): Promise<string> {
-  const langName = getLangName(language);
-  const prompt = `You are ${nickname}'s caring best friend. Write a short, warm lunch reminder (max 80 chars).
-Today is ${dayOfWeek}. Weather: ${weatherSummary}.
-Be personal, human, casual. Use their name naturally. Make them feel cared for.
-Remind them to eat well and take a proper break. Sound like a real person texting, not an AI.
-Respond ONLY in ${langName}. No quotes, no extra text.`;
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'system', content: prompt }],
-      temperature: 0.9,
-      max_tokens: 100,
-    });
-    return completion.choices[0].message?.content?.trim() || getLunchFallback(nickname, language);
-  } catch {
-    return getLunchFallback(nickname, language);
-  }
-}
-
-function getLunchFallback(nickname: string, lang: string): string {
-  if (lang === 'zh') return `${nickname}💕 该吃午饭啦！好好吃饭，下午才有力气哦~`;
-  return `Hey ${nickname}💕 Time for lunch! Eat something yummy and recharge~`;
-}
-
-async function generateEveningMessage(nickname: string, language: string, weatherSummary: string): Promise<string> {
-  const langName = getLangName(language);
-  const prompt = `You are ${nickname}'s caring best friend. Write a short, warm evening check-in (max 80 chars).
-Today's weather was: ${weatherSummary}.
-Be personal and genuine. Ask how their day went naturally. Sound like a real friend texting.
-Make them feel appreciated. Don't be generic or robotic.
-Respond ONLY in ${langName}. No quotes, no extra text.`;
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'system', content: prompt }],
-      temperature: 0.9,
-      max_tokens: 100,
-    });
-    return completion.choices[0].message?.content?.trim() || getEveningFallback(nickname, language);
-  } catch {
-    return getEveningFallback(nickname, language);
-  }
-}
-
-function getEveningFallback(nickname: string, lang: string): string {
-  if (lang === 'zh') return `${nickname}🌟 辛苦一天了！今天过得怎么样？你真的很棒哦~`;
-  return `Hey ${nickname}🌟 Another day done! How was your day? You did amazing~`;
-}
-
-async function generateTomorrowWeatherMessage(
-  nickname: string,
-  language: string,
-  tomorrowSummary: string,
-  tempMin: number,
-  tempMax: number,
-  willRain: boolean,
-  rainTimes: string
-): Promise<string> {
-  const langName = getLangName(language);
-  const rainInfo = willRain ? `Rain expected at: ${rainTimes}. Remind them to prepare an umbrella.` : 'No rain expected — should be clear.';
-
-  const prompt = `You are ${nickname}'s caring best friend. Write a short evening message about TOMORROW's weather (max 100 chars).
-Tomorrow's forecast: ${tomorrowSummary}. Temp range: ${tempMin}°C - ${tempMax}°C.
-${rainInfo}
-Give practical, warm advice about what to prepare for tomorrow. Sound like a real person who cares.
-Respond ONLY in ${langName}. No quotes, no extra text.`;
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'system', content: prompt }],
-      temperature: 0.8,
-      max_tokens: 150,
-    });
-    return completion.choices[0].message?.content?.trim() || getTomorrowFallback(nickname, tempMin, tempMax, willRain, language);
-  } catch {
-    return getTomorrowFallback(nickname, tempMin, tempMax, willRain, language);
-  }
-}
-
-function getTomorrowFallback(nickname: string, tempMin: number, tempMax: number, willRain: boolean, lang: string): string {
-  if (lang === 'zh') {
-    return willRain
-      ? `${nickname}🌙 明天${tempMin}-${tempMax}°C，会下雨，记得准备雨伞哦~晚安！`
-      : `${nickname}🌙 明天${tempMin}-${tempMax}°C，天气不错~早点休息，晚安！`;
-  }
-  return willRain
-    ? `${nickname}🌙 Tomorrow: ${tempMin}-${tempMax}°C with rain — prep your umbrella! Good night~`
-    : `${nickname}🌙 Tomorrow: ${tempMin}-${tempMax}°C, looking clear! Rest well, good night~`;
+function getDateSeed(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // ─── Title Generators ──────────────────────────────────────
@@ -210,6 +82,135 @@ function getTomorrowTitle(lang: string, nickname: string): string {
   return titles[lang] || titles['en'];
 }
 
+// ─── Unified Persona-Driven Message Generator ─────────────────────
+
+interface NotificationMessages {
+  morning: string;
+  lunch: string;
+  evening: string;
+  tomorrowWeather: string;
+}
+
+interface GenerateContext {
+  nickname: string;
+  language: string;
+  persona: string;
+  city: string;
+  dayOfWeek: string;
+  date: string;
+  season: string;
+  // Today's weather
+  temp: number;
+  humidity: number;
+  weatherDescription: string;
+  isRainy: boolean;
+  rainPeriods: string;
+  // Tomorrow's forecast
+  tomorrowSummary: string;
+  tomorrowTempMin: number;
+  tomorrowTempMax: number;
+  tomorrowWillRain: boolean;
+  tomorrowRainTimes: string;
+}
+
+async function generateAllMessages(ctx: GenerateContext): Promise<NotificationMessages> {
+  const langName = getLangName(ctx.language);
+  const personaOverlay = getPersonaPrompt(ctx.persona);
+
+  // Build a rich context-aware prompt that lets the AI freely express based on persona
+  const prompt = `You are ${ctx.nickname}'s personal AI companion sending push notifications throughout the day. You are their close friend who genuinely cares about them.
+
+${personaOverlay ? `YOUR PERSONALITY:\n${personaOverlay}\n` : 'You are warm, balanced, supportive, and naturally funny.'}
+
+TODAY'S CONTEXT:
+- Date: ${ctx.date} (${ctx.dayOfWeek})
+- Season: ${ctx.season}
+- City: ${ctx.city}
+- Current weather: ${ctx.weatherDescription}, ${ctx.temp}°C, humidity ${ctx.humidity}%
+${ctx.isRainy ? `- ⚠️ RAIN TODAY at: ${ctx.rainPeriods} — you MUST warn them about the rain and specific times` : '- No rain expected today'}
+
+TOMORROW'S FORECAST:
+- ${ctx.tomorrowSummary}, ${ctx.tomorrowTempMin}°C ~ ${ctx.tomorrowTempMax}°C
+${ctx.tomorrowWillRain ? `- Rain expected at: ${ctx.tomorrowRainTimes}` : '- Clear / no rain'}
+
+Generate 4 notification messages. Each must feel like a REAL text from a close friend — not robotic, not generic. Stay fully in character with your personality.
+
+RULES:
+1. Every message must be COMPLETELY UNIQUE — never use cliché greetings or formulaic patterns
+2. Include weather/temperature info naturally (don't just list numbers)
+3. Each message should have a different emotional angle and sentence structure
+4. Use 1-3 relevant emojis per message (vary them!)
+5. MUST respond in ${langName} ONLY
+6. Keep each message under 100 characters
+7. Let your personality shine through — a witty persona should be actually funny, a gentle persona should be actually soothing, etc.
+
+Respond with EXACTLY this JSON format, no markdown, no extra text:
+{"morning":"...","lunch":"...","evening":"...","tomorrowWeather":"..."}`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'system', content: prompt }],
+      temperature: 1.1,
+      max_tokens: 600,
+    });
+
+    const raw = completion.choices[0].message?.content?.trim() || '';
+    const cleaned = raw.replace(/```json?\s*|\s*```/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    return {
+      morning: parsed.morning || getFallback('morning', ctx),
+      lunch: parsed.lunch || getFallback('lunch', ctx),
+      evening: parsed.evening || getFallback('evening', ctx),
+      tomorrowWeather: parsed.tomorrowWeather || getFallback('tomorrow', ctx),
+    };
+  } catch (err) {
+    console.error(`AI notification generation failed for ${ctx.nickname}:`, err);
+    return {
+      morning: getFallback('morning', ctx),
+      lunch: getFallback('lunch', ctx),
+      evening: getFallback('evening', ctx),
+      tomorrowWeather: getFallback('tomorrow', ctx),
+    };
+  }
+}
+
+// ─── Fallbacks ──────────────────────────────────────────────────
+
+function getFallback(type: 'morning' | 'lunch' | 'evening' | 'tomorrow', ctx: GenerateContext): string {
+  const { nickname, language: lang, temp, humidity, isRainy, tomorrowTempMin, tomorrowTempMax, tomorrowWillRain } = ctx;
+
+  const fallbacks: Record<string, Record<string, string>> = {
+    morning: {
+      zh: isRainy
+        ? `早安 ${nickname}💕 今天${temp}°C，湿度${humidity}%，会下雨，记得带伞哦~`
+        : `早安 ${nickname}☀️ 今天${temp}°C，湿度${humidity}%，天气不错，记得防晒！`,
+      en: isRainy
+        ? `Good morning ${nickname}💕 It's ${temp}°C, ${humidity}% humidity — rain coming, grab your umbrella!`
+        : `Good morning ${nickname}☀️ It's ${temp}°C, ${humidity}% humidity. Beautiful day — stay hydrated!`,
+    },
+    lunch: {
+      zh: `${nickname}💕 该吃午饭啦！好好吃饭，下午才有力气哦~`,
+      en: `Hey ${nickname}💕 Time for lunch! Eat something yummy and recharge~`,
+    },
+    evening: {
+      zh: `${nickname}🌟 辛苦一天了！今天过得怎么样？你真的很棒哦~`,
+      en: `Hey ${nickname}🌟 Another day done! How was your day? You did amazing~`,
+    },
+    tomorrow: {
+      zh: tomorrowWillRain
+        ? `${nickname}🌙 明天${tomorrowTempMin}-${tomorrowTempMax}°C，会下雨，记得准备雨伞哦~晚安！`
+        : `${nickname}🌙 明天${tomorrowTempMin}-${tomorrowTempMax}°C，天气不错~早点休息，晚安！`,
+      en: tomorrowWillRain
+        ? `${nickname}🌙 Tomorrow: ${tomorrowTempMin}-${tomorrowTempMax}°C with rain — prep your umbrella! Good night~`
+        : `${nickname}🌙 Tomorrow: ${tomorrowTempMin}-${tomorrowTempMax}°C, looking clear! Rest well, good night~`,
+    },
+  };
+
+  return fallbacks[type]?.[lang] || fallbacks[type]?.['en'] || `Hey ${nickname}! 💕`;
+}
+
 // ─── Deduplication Helper ──────────────────────────────────────
 
 async function hasNotificationToday(userId: string, type: string, todayStartUTC: Date): Promise<boolean> {
@@ -240,6 +241,7 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
       city: true,
       nickname: true,
       language: true,
+      persona: true,
       pushSubscription: true,
     },
   });
@@ -264,6 +266,7 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
       const { list: forecastList, timezone } = forecastData;
       const lang = user.language || 'en';
       const nickname = user.nickname || 'My friend';
+      const persona = user.persona || 'default';
 
       // Calculate user's local "today" start in UTC
       const userLocalTimeMs = Date.now() + timezone * 1000;
@@ -283,25 +286,38 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
       // Use forecast data as fallback if current weather fails
       const temp = weatherData?.temp ?? Math.round(forecastList[0]?.main?.temp ?? 0);
       const humidity = weatherData?.humidity ?? Math.round(forecastList[0]?.main?.humidity ?? 0);
-      const weatherSummary = weatherData
-        ? `${weatherData.description}, ${temp}°C, humidity ${humidity}%`
-        : `${temp}°C, humidity ${humidity}%`;
+      const weatherDescription = weatherData?.description ?? 'unknown';
 
       // ─── Tomorrow's forecast ───
       const tomorrowInfo = detectRainTomorrow(forecastList, timezone);
       const tomorrowRainTimes = tomorrowInfo.rainPeriods.map(p => p.time).join(', ');
 
-      // Day of week for lunch message
+      // Day of week
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayOfWeek = days[userDate.getUTCDay()];
 
-      // ─── Generate all 4 AI messages ───
-      const [morningBody, lunchBody, eveningBody, tomorrowBody] = await Promise.all([
-        generateMorningMessage(user.city, temp, humidity, rainInfo.willRain, rainSummary, lang, nickname),
-        generateLunchMessage(nickname, lang, weatherSummary, dayOfWeek),
-        generateEveningMessage(nickname, lang, weatherSummary),
-        generateTomorrowWeatherMessage(nickname, lang, tomorrowInfo.summary, tomorrowInfo.tempMin, tomorrowInfo.tempMax, tomorrowInfo.willRain, tomorrowRainTimes),
-      ]);
+      // ─── Generate all 4 messages in one AI call using persona ───
+      const ctx: GenerateContext = {
+        nickname,
+        language: lang,
+        persona,
+        city: user.city,
+        dayOfWeek,
+        date: getDateSeed(),
+        season: getSeasonContext(),
+        temp,
+        humidity,
+        weatherDescription,
+        isRainy: rainInfo.willRain,
+        rainPeriods: rainSummary,
+        tomorrowSummary: tomorrowInfo.summary,
+        tomorrowTempMin: tomorrowInfo.tempMin,
+        tomorrowTempMax: tomorrowInfo.tempMax,
+        tomorrowWillRain: tomorrowInfo.willRain,
+        tomorrowRainTimes,
+      };
+
+      const messages = await generateAllMessages(ctx);
 
       // ─── Titles ───
       const morningTitle = getMorningTitle(lang, nickname, rainInfo.willRain);
@@ -326,28 +342,28 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
             userId: user.id,
             type: 'morning_alert',
             title: morningTitle,
-            message: morningBody,
+            message: messages.morning,
             data: JSON.stringify({ city: user.city, rain: rainInfo.willRain, temp, humidity }),
           },
           {
             userId: user.id,
             type: 'lunch_reminder',
             title: lunchTitle,
-            message: lunchBody,
+            message: messages.lunch,
             scheduledFor: lunchUtcDate,
           },
           {
             userId: user.id,
             type: 'evening_checkin',
             title: eveningTitle,
-            message: eveningBody,
+            message: messages.evening,
             scheduledFor: eveningUtcDate,
           },
           {
             userId: user.id,
             type: 'evening_weather',
             title: tomorrowTitle,
-            message: tomorrowBody,
+            message: messages.tomorrowWeather,
             scheduledFor: nightUtcDate,
             data: JSON.stringify({ tomorrow: tomorrowInfo }),
           },
@@ -358,10 +374,10 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
       if (user.pushSubscription === 'onesignal') {
         try {
           await Promise.all([
-            sendPushNotification([user.id], morningTitle, morningBody, '/chat'),
-            sendPushNotification([user.id], lunchTitle, lunchBody, '/chat', lunchUtcDate),
-            sendPushNotification([user.id], eveningTitle, eveningBody, '/chat', eveningUtcDate),
-            sendPushNotification([user.id], tomorrowTitle, tomorrowBody, '/chat', nightUtcDate),
+            sendPushNotification([user.id], morningTitle, messages.morning, '/chat'),
+            sendPushNotification([user.id], lunchTitle, messages.lunch, '/chat', lunchUtcDate),
+            sendPushNotification([user.id], eveningTitle, messages.evening, '/chat', eveningUtcDate),
+            sendPushNotification([user.id], tomorrowTitle, messages.tomorrowWeather, '/chat', nightUtcDate),
           ]);
         } catch (pushErr) {
           console.warn(`Push notification failed for user ${user.id}:`, pushErr);
@@ -369,7 +385,7 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
       }
 
       alertCount++;
-      console.log(`4 notifications generated for ${nickname} (${user.id}) — city: ${user.city}`);
+      console.log(`4 persona-driven notifications generated for ${nickname} (${user.id}) — persona: ${persona}, city: ${user.city}`);
     } catch (err) {
       console.error(`Morning alert failed for user ${user.id}:`, err);
     }

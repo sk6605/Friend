@@ -17,6 +17,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   createdAt?: string;
+  fileAttachments?: { name: string; url: string; size: number; type: string }[];
 }
 
 interface Conversation {
@@ -434,9 +435,19 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
                 <span className="text-sm">Start a new conversation...</span>
               </div>
             ) : (
-              messages.map((msg, index) => (
+              messages.map((msg, index) => {
+                // Parse fileAttachments: may be a JSON string from DB or already an array
+                let attachments: { name: string; url: string; size: number; type: string }[] | undefined;
+                if (msg.fileAttachments) {
+                  if (typeof msg.fileAttachments === 'string') {
+                    try { attachments = JSON.parse(msg.fileAttachments); } catch { /* ignore */ }
+                  } else {
+                    attachments = msg.fileAttachments;
+                  }
+                }
+                return (
                 <div key={index} id={msg.id ? `msg-${msg.id}` : undefined}>
-                  <ChatBubble role={msg.role} content={msg.content} messageId={msg.id} createdAt={msg.createdAt} onDelete={handleDeleteMessage} profilePicture={profilePicture} nickname={nickname} isHighlighted={!!highlightId && msg.id === highlightId} />
+                  <ChatBubble role={msg.role} content={msg.content} messageId={msg.id} createdAt={msg.createdAt} onDelete={handleDeleteMessage} profilePicture={profilePicture} nickname={nickname} isHighlighted={!!highlightId && msg.id === highlightId} fileAttachments={attachments} />
                   {(msg.id === 'mood-selector' || msg.id === 'greeting-new') && !moodchoose && (
                     <MoodSelector
                       language={language}
@@ -447,7 +458,8 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
                     />
                   )}
                 </div>
-              ))
+                );
+              })
             )}
 
             {isLoading && (
