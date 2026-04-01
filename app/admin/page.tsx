@@ -376,12 +376,6 @@ export default function AdminDashboard() {
       });
       if (res.ok) {
         setAdminMessageInput('');
-        // Clear typing signal
-        fetch('/api/crisis/typing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ eventId: interveningEvent.id, isTyping: false }),
-        }).catch(() => {});
         // Refresh messages
         const convRes = await fetch(`/api/conversations/${interveningEvent.conversationId}?userId=${interveningEvent.userId}`);
         if (convRes.ok) {
@@ -393,24 +387,6 @@ export default function AdminDashboard() {
       console.error(err);
     } finally {
       setAdminChatLoading(false);
-    }
-  };
-
-  // Admin typing signal: pulse when admin types in the input
-  const handleAdminInputChange = (value: string) => {
-    setAdminMessageInput(value);
-    if (interveningEvent && value.trim()) {
-      fetch('/api/crisis/typing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: interveningEvent.id, isTyping: true }),
-      }).catch(() => {});
-    } else if (interveningEvent && !value.trim()) {
-      fetch('/api/crisis/typing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: interveningEvent.id, isTyping: false }),
-      }).catch(() => {});
     }
   };
 
@@ -1302,7 +1278,7 @@ export default function AdminDashboard() {
                 <input
                   type="text"
                   value={adminMessageInput}
-                  onChange={(e) => handleAdminInputChange(e.target.value)}
+                  onChange={(e) => setAdminMessageInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendAdminMessage()}
                   placeholder="Type a message as Lumi Support Team..."
                   className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500 transition-colors"

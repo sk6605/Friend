@@ -63,6 +63,15 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // Skip rate limiting for admin routes (already authenticated by admin key)
+  // and crisis-related endpoints that need high-frequency polling
+  if (
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/crisis')
+  ) {
+    return NextResponse.next();
+  }
+
   // Pick the right bucket based on the route
   let ratelimit: typeof authRatelimit;
   if (pathname.startsWith('/api/auth')) {
@@ -78,16 +87,18 @@ export async function middleware(request: NextRequest) {
   const { success, limit, reset, remaining } = await ratelimit.limit(ip);
 
   if (!success) {
-    return new NextResponse('Too Many Requests', {
-      status: 429,
-      headers: {
-        'Content-Type': 'text/plain',
-        'X-RateLimit-Limit': limit.toString(),
-        'X-RateLimit-Remaining': remaining.toString(),
-        'X-RateLimit-Reset': reset.toString(),
-        'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString(),
-      },
-    });
+    return NextResponse.json(
+      { error: 'Too many requests. Please slow down.' },
+      {
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': limit.toString(),
+          'X-RateLimit-Remaining': remaining.toString(),
+          'X-RateLimit-Reset': reset.toString(),
+          'Retry-After': Math.ceil((reset - Date.now()) / 1000).toString(),
+        },
+      }
+    );
   }
 
   return NextResponse.next();

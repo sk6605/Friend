@@ -211,34 +211,32 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
       })
       .catch(() => { /* ignore */ });
 
-    // Polling logic when in safe mode
+    // Polling logic: only check if admin has resolved (no typing indicator)
     let interval: NodeJS.Timeout | null = null;
-    
+
     const pollStatus = () => {
       fetch(`/api/crisis/status?userId=${userId}`)
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (!data) return;
-          
-          setIsAdminTyping(data.isAdminTyping);
-          
+
           // If resolved on server but still showing locally, sync state
           if (data.isResolved && currentConvId && hasSafeMode(currentConvId)) {
-             resolveSafeMode(currentConvId);
-             // Optionally refresh messages to see admin's final reply
-             loadConversation(currentConvId);
+            resolveSafeMode(currentConvId);
+            // Refresh messages to see admin's replies
+            loadConversation(currentConvId);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     if (currentConvId && hasSafeMode(currentConvId)) {
       pollStatus();
-      interval = setInterval(pollStatus, 2500);
+      interval = setInterval(pollStatus, 5000); // Poll every 5s
     }
 
     return () => { if (interval) clearInterval(interval); };
-  }, [userId, currentConvId, hasSafeMode, syncSafeModeConversations, resolveSafeMode, setIsAdminTyping]);
+  }, [userId, currentConvId, hasSafeMode, syncSafeModeConversations, resolveSafeMode]);
 
   // Scroll to bottom whenever messages change or stream updates
   const scrollToBottom = () => {
@@ -476,18 +474,18 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
                   }
                 }
                 return (
-                <div key={index} id={msg.id ? `msg-${msg.id}` : undefined}>
-                  <ChatBubble role={msg.role} content={msg.content} messageId={msg.id} createdAt={msg.createdAt} onDelete={handleDeleteMessage} profilePicture={profilePicture} nickname={nickname} isHighlighted={!!highlightId && msg.id === highlightId} fileAttachments={attachments} />
-                  {(msg.id === 'mood-selector' || msg.id === 'greeting-new') && !moodchoose && (
-                    <MoodSelector
-                      language={language}
-                      onSelect={(mood) => {
-                        setMoodchoose(true);
-                        handleSendMessage(getMoodMessage(language, mood));
-                      }}
-                    />
-                  )}
-                </div>
+                  <div key={index} id={msg.id ? `msg-${msg.id}` : undefined}>
+                    <ChatBubble role={msg.role} content={msg.content} messageId={msg.id} createdAt={msg.createdAt} onDelete={handleDeleteMessage} profilePicture={profilePicture} nickname={nickname} isHighlighted={!!highlightId && msg.id === highlightId} fileAttachments={attachments} />
+                    {(msg.id === 'mood-selector' || msg.id === 'greeting-new') && !moodchoose && (
+                      <MoodSelector
+                        language={language}
+                        onSelect={(mood) => {
+                          setMoodchoose(true);
+                          handleSendMessage(getMoodMessage(language, mood));
+                        }}
+                      />
+                    )}
+                  </div>
                 );
               })
             )}
@@ -512,7 +510,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
                     <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                     <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
-                  <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Admin is typing...</span>
+                  <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Lumi is typing...</span>
                 </div>
               </div>
             )}
