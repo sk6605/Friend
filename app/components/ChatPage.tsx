@@ -106,7 +106,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
   const { isListening, isSpeaking, transcript, error: voiceError, startListening, stopListening, speak, cancelSpeech, resetTranscript, timeRemaining, maxDuration } = useVoice(language);
   const prevListeningRef = useRef(isListening);
 
-  const { hasSafeMode, triggerSafeMode, syncSafeModeConversations } = useSafeMode();
+  const { hasSafeMode, triggerSafeMode, syncSafeModeConversations, resolveSafeMode, isAdminTyping, setIsAdminTyping } = useSafeMode();
 
 
   const {
@@ -197,9 +197,11 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     }
   }, [userId]);
 
-  // Check SAFE_MODE status on mount
+  // Check SAFE_MODE status on mount and Poll status during safe mode
   useEffect(() => {
     if (!userId) return;
+
+    // Initial sync
     fetch(`/api/users/${userId}/safemode`)
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
@@ -208,7 +210,35 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
         }
       })
       .catch(() => { /* ignore */ });
-  }, [userId, syncSafeModeConversations]);
+
+    // Polling logic when in safe mode
+    let interval: NodeJS.Timeout | null = null;
+    
+    const pollStatus = () => {
+      fetch(`/api/crisis/status?userId=${userId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!data) return;
+          
+          setIsAdminTyping(data.isAdminTyping);
+          
+          // If resolved on server but still showing locally, sync state
+          if (data.isResolved && currentConvId && hasSafeMode(currentConvId)) {
+             resolveSafeMode(currentConvId);
+             // Optionally refresh messages to see admin's final reply
+             loadConversation(currentConvId);
+          }
+        })
+        .catch(() => {});
+    };
+
+    if (currentConvId && hasSafeMode(currentConvId)) {
+      pollStatus();
+      interval = setInterval(pollStatus, 2500);
+    }
+
+    return () => { if (interval) clearInterval(interval); };
+  }, [userId, currentConvId, hasSafeMode, syncSafeModeConversations, resolveSafeMode, setIsAdminTyping]);
 
   // Scroll to bottom whenever messages change or stream updates
   const scrollToBottom = () => {
@@ -462,7 +492,8 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
               })
             )}
 
-            {isLoading && (
+            {/* AI thinking dots - hidden when admin is intervening */}
+            {isLoading && !hasSafeMode(currentConvId) && (
               <div className="flex justify-start">
                 <div className="px-5 py-3 rounded-2xl bg-white/70 dark:bg-white/10 border border-purple-100/40 dark:border-purple-800/30">
                   <div className="flex items-center gap-1.5">
@@ -470,6 +501,18 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
                     <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                     <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
+                </div>
+              </div>
+            )}
+            {isAdminTyping && (
+              <div className="flex justify-start">
+                <div className="px-5 py-3 rounded-2xl bg-white/70 dark:bg-white/10 border border-purple-100/40 dark:border-purple-800/30 flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                  <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Admin is typing...</span>
                 </div>
               </div>
             )}

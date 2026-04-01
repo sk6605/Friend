@@ -252,13 +252,12 @@ export async function POST(req: NextRequest) {
               userId,
               conversationId: conversation.id,
               riskLevel: { gte: 2 },
-              status: { in: ['open', 'escalated', 'acknowledged', 'intervening'] },
+              status: { in: ['open', 'escalated', 'acknowledged'] },
             },
-            select: { classificationReason: true, status: true },
+            select: { id: true, classificationReason: true, status: true },
           });
           isSafeMode = !!activeCrisisForConv;
           if (activeCrisisForConv) {
-            if (activeCrisisForConv.status === 'intervening') isIntervening = true;
             const reason = activeCrisisForConv.classificationReason || '';
             safeModeCategory = reason.toLowerCase().includes('extreme_speech') ? 'extreme_speech' : 'self_harm';
           }
@@ -422,7 +421,8 @@ Ask the user which city they'd like weather for, and mention you can remember it
     }
 
     // ─── Crisis risk assessment (before streaming) ───
-    if (userId && !isSafeMode) {
+    let justActivatedSafeMode = false;
+    if (userId) {
       const assessment = await assessCrisisRisk(
         userText,
         messages.slice(-6).map((m: any) => ({ role: m.role, content: m.content })),
@@ -430,13 +430,14 @@ Ask the user which city they'd like weather for, and mention you can remember it
       );
 
       if (assessment.riskLevel >= 2) {
-        // HIGH RISK or IMMINENT DANGER — activate SAFE_MODE
+        // ALWAYS record and notify for high-risk triggers (fixes the "second trigger" bug)
         const eventId = await recordCrisisEvent(
           userId, null, conversation.id,
           assessment.riskLevel, userText,
           assessment.reason, assessment.matchedKeywords,
         );
-        await activateSafeMode(userId, eventId, assessment.reason);
+        
+        // Notify admin immediately
         notifyCrisisIntervention(userId, {
           id: eventId,
           riskLevel: assessment.riskLevel,
@@ -446,28 +447,55 @@ Ask the user which city they'd like weather for, and mention you can remember it
           matchedKeywords: assessment.matchedKeywords,
         }).catch((err) => console.error('Crisis notification failed:', err));
 
-        // Switch to appropriate prompt based on category
-        isSafeMode = true;
-        safeModeCategory = assessment.category === 'extreme_speech' ? 'extreme_speech' : 'self_harm';
-        formattedMessages[0] = {
-          role: 'system',
-          content: safeModeCategory === 'extreme_speech'
-            ? buildExtremeSpeechPrompt(effectiveLang, userAgeGroup)
-            : buildCrisisSystemPrompt(effectiveLang, userAgeGroup),
-        };
+        // If not already in safe mode, activate it and prepare for first hotline response
+        if (!isSafeMode) {
+          await activateSafeMode(userId, eventId, assessment.reason);
+          isSafeMode = true;
+          justActivatedSafeMode = true;
+          safeModeCategory = assessment.category === 'extreme_speech' ? 'extreme_speech' : 'self_harm';
+          
+          formattedMessages[0] = {
+            role: 'system',
+            content: safeModeCategory === 'extreme_speech'
+              ? buildExtremeSpeechPrompt(effectiveLang, userAgeGroup)
+              : buildCrisisSystemPrompt(effectiveLang, userAgeGroup),
+          };
+        }
 
         // Apply account restriction for extreme speech violations
         if (assessment.category === 'extreme_speech') {
-          recordViolationAndRestrict(userId, assessment.reason)
-            .catch((err) => console.error('Account restriction failed:', err));
+          await recordViolationAndRestrict(userId, assessment.reason);
         }
-      } else if (assessment.riskLevel === 1) {
-        // EMOTIONAL DISTRESS — log for monitoring, continue normal flow
-        recordCrisisEvent(
-          userId, null, conversation.id,
-          1, userText, assessment.reason, assessment.matchedKeywords,
-        ).catch((err) => console.error('Crisis event logging failed:', err));
       }
+    }
+
+    // ─── GATED AI RESPONSE: Silence AI during active intervention ───
+    // If we are in safeMode but it wasn't JUST triggered now, it means we already sent the hotline.
+    // In this case, we stop AI output and wait for Admin.
+    if (isSafeMode && !justActivatedSafeMode) {
+      // Still record the user message to keep the thread updated
+      if (userId) {
+        try {
+          await prisma.message.create({
+            data: {
+              conversationId: conversation.id,
+              role: 'user',
+              content: userText,
+              fileAttachments: fileUrls.length > 0 ? JSON.stringify(fileUrls.map((url: string, i: number) => ({
+                url, name: fileMetadata[i].name, size: fileMetadata[i].size, type: fileMetadata[i].type
+              }))) : null,
+            }
+          });
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { messageCount: messageCount }
+          });
+        } catch (e) { console.error("Error saving silent user message:", e); }
+      }
+
+      // Return a 200 but close the connection without sending any AI markers.
+      // The frontend will see no stream and behave accordingly.
+      return new Response(null, { status: 200 });
     }
 
     const encoder = new TextEncoder();
@@ -481,7 +509,7 @@ Ask the user which city they'd like weather for, and mention you can remember it
           const openai = getOpenAIClient();
           await sleep(1500);
 
-          if (isIntervening) {
+          if (isSafeMode && !justActivatedSafeMode) {
             // Human is actively intervening: do not call OpenAI. AI is paused.
             controller.close();
           } else {

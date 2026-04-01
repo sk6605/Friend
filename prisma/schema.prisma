@@ -222,6 +222,10 @@ model CrisisEvent {
   status     String    @default("open") // open | acknowledged | resolved | escalated
   resolvedBy String?                    // Admin identifier who resolved
   resolvedAt DateTime?
+  
+  isAdminTyping     Boolean   @default(false)
+  lastAdminTypingAt DateTime?
+
   notes      String?          // Admin notes
 
   createdAt  DateTime  @default(now())
@@ -330,4 +334,13 @@ model Subscription {
   @@index([userId])
   @@index([status])
   @@index([externalId])
+}
+
+model DemoUsage {
+  id        String   @id @default(cuid())
+  ip        String   @unique
+  count     Int      @default(0)
+  lastUsed  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

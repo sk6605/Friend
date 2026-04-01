@@ -195,8 +195,13 @@ export function useChatStream({
             { role: 'user', content: displayContent },
         ];
         setMessages(updatedMessages);
-        setIsLoading(true); // 显示"思考中"动画
-        setIsStreaming(true); // 锁定输入框
+
+        // 如果是危机干预模式，跳过加载动画和输入锁定 (Skip loading/lock in crisis mode)
+        const isSafe = checkSafeMode && currentConvId ? checkSafeMode(currentConvId) : false;
+        if (!isSafe) {
+            setIsLoading(true); // 显示"思考中"动画
+            setIsStreaming(true); // 锁定输入框
+        }
 
         try {
             // 3. 处理文件上传 (Upload files logic)
@@ -237,8 +242,8 @@ export function useChatStream({
                 : undefined;
 
             // 将用户消息存入数据库 (Fire-and-forget: 发出去就不用等结果了)
-            // Save user message to DB asynchronously
-            fetch(`/api/conversations/${convId}/messages`, {
+            // Save user message to DB
+            const saveMsgPromise = fetch(`/api/conversations/${convId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -247,6 +252,23 @@ export function useChatStream({
                     fileAttachments: fileAttachments ? JSON.stringify(fileAttachments) : undefined,
                 }),
             });
+
+            // 如果处于安全模式，我们只需要保存消息并确保 AI 处于静默状态
+            if (isSafe) {
+                await saveMsgPromise;
+                // 调用一次 API/chat 以触发可能的后续危机评估 (如二次触发告知 Admin)
+                // 此时 API 会因为 SafeMode 而返回 Response(null)
+                await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: updatedMessages,
+                        conversationId: convId,
+                        userId,
+                    }),
+                });
+                return; // 直接返回，保持输入框解锁
+            }
 
             // 4. 发起核心的聊天流式请求 (Stream with auto-retry)
             let assistantText = '';

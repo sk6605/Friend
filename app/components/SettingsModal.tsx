@@ -887,7 +887,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                   `}
                   type="button"
                   role="switch"
-                  aria-checked={dataControl}
+                  aria-checked={dataControl ? 'true' : 'false'}
                   aria-label="Toggle data control"
                 >
                   <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${dataControl ? 'translate-x-5' : 'translate-x-0'}`} />

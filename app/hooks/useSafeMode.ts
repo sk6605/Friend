@@ -8,8 +8,11 @@ import { useState, useCallback } from 'react';
  * 2. 提供统一触发和解除安全模式的 API (Provide a unified API to trigger safe mode).
  */
 export function useSafeMode() {
-    // 保存触发了安全模式的对话 ID 集合 (Set of conversation IDs that triggered safe mode)
+    // 保存处于安全模式的对话 ID (Set of conversation IDs that triggered safe mode)
     const [safeModeConvIds, setSafeModeConvIds] = useState<Set<string>>(new Set());
+    
+    // 管理管理员是否正在输入的状态 (Track if admin is typing)
+    const [isAdminTyping, setIsAdminTyping] = useState(false);
 
 
 
@@ -34,9 +37,21 @@ export function useSafeMode() {
 
 
 
+    // 解除特定对话的安全模式 (Resolve safe mode for a specific conversation)
+    const resolveSafeMode = useCallback((convId: string) => {
+        setSafeModeConvIds((prev) => {
+            const next = new Set(prev);
+            next.delete(convId);
+            return next;
+        });
+    }, []);
+
     return {
         hasSafeMode,
         triggerSafeMode,
         syncSafeModeConversations,
+        resolveSafeMode,
+        isAdminTyping,
+        setIsAdminTyping,
     };
 }
