@@ -442,12 +442,16 @@ export function useChatStream({
                     const convResp = await fetch(`/api/conversations/${convId}?userId=${userId}`);
                     if (convResp.ok) {
                         const updatedConv = await convResp.json();
-                        updateConversationTitle(convId, updatedConv.title);
+                        if (updatedConv.title && updatedConv.title !== convId.slice(0, 20)) {
+                            updateConversationTitle(convId, updatedConv.title);
+                        }
                     }
                 } catch (err) { /* ignore */ }
             };
-            refreshTitle();
-            setTimeout(refreshTitle, 5000);
+            // Stagger retries: backend needs ~2-5s to generate title after stream closes
+            setTimeout(refreshTitle, 1000);  // 1s — early attempt
+            setTimeout(refreshTitle, 4000);  // 4s — most titles should be ready
+            setTimeout(refreshTitle, 8000);  // 8s — catch slow AI generation
 
         } catch (error) {
             console.error('发送消息异常 / Error sending message:', error);
