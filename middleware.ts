@@ -63,11 +63,14 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Skip rate limiting for admin routes (already authenticated by admin key)
-  // and crisis-related endpoints that need high-frequency polling
+  // Skip rate limiting for admin routes (already authenticated by admin key),
+  // crisis endpoints, conversation reads, and user profile fetches
+  // These are all read-heavy, high-frequency polling routes
   if (
     pathname.startsWith('/api/admin') ||
-    pathname.startsWith('/api/crisis')
+    pathname.startsWith('/api/crisis') ||
+    pathname.startsWith('/api/conversations') ||
+    pathname.startsWith('/api/users')
   ) {
     return NextResponse.next();
   }
