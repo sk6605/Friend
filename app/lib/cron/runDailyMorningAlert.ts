@@ -85,9 +85,13 @@ function getTomorrowTitle(lang: string, nickname: string): string {
 // ─── Unified Persona-Driven Message Generator ─────────────────────
 
 interface NotificationMessages {
+  morningTitle: string;
   morning: string;
+  lunchTitle: string;
   lunch: string;
+  eveningTitle: string;
   evening: string;
+  tomorrowTitle: string;
   tomorrowWeather: string;
 }
 
@@ -133,44 +137,63 @@ TOMORROW'S FORECAST:
 - ${ctx.tomorrowSummary}, ${ctx.tomorrowTempMin}°C ~ ${ctx.tomorrowTempMax}°C
 ${ctx.tomorrowWillRain ? `- Rain expected at: ${ctx.tomorrowRainTimes}` : '- Clear / no rain'}
 
-Generate 4 notification messages. Each must feel like a REAL text from a close friend — not robotic, not generic. Stay fully in character with your personality.
+Generate 4 notifications (Title + Message). Each pair must feel like a REAL text from a close friend — not robotic, not generic. Stay fully in character with your personality.
 
 RULES:
-1. Every message must be COMPLETELY UNIQUE — never use cliché greetings or formulaic patterns
-2. Include weather/temperature info naturally (don't just list numbers)
-3. Each message should have a different emotional angle and sentence structure
-4. Use 1-3 relevant emojis per message (vary them!)
-5. MUST respond in ${langName} ONLY
-6. Keep each message under 100 characters
-7. Let your personality shine through — a witty persona should be actually funny, a gentle persona should be actually soothing, etc.
+1. Every title and message must be COMPLETELY UNIQUE — never use cliché patterns.
+2. Include weather info naturally.
+3. Titles should be short and catchy (e.g., "Morning, bestie! ☀️").
+4. Messages should be under 100 characters.
+5. MUST respond in ${langName} ONLY.
+6. Use 1-3 relevant emojis per title/message.
 
 Respond with EXACTLY this JSON format, no markdown, no extra text:
-{"morning":"...","lunch":"...","evening":"...","tomorrowWeather":"..."}`;
+{
+  "morningTitle": "...",
+  "morning": "...",
+  "lunchTitle": "...",
+  "lunch": "...",
+  "eveningTitle": "...",
+  "evening": "...",
+  "tomorrowTitle": "...",
+  "tomorrowWeather": "..."
+} `;
 
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'system', content: prompt }],
       temperature: 1.1,
-      max_tokens: 600,
+      max_tokens: 800,
     });
 
     const raw = completion.choices[0].message?.content?.trim() || '';
-    const cleaned = raw.replace(/```json?\s*|\s*```/g, '').trim();
+    // Enhanced JSON cleaning: extract JSON if it's wrapped in markdown
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const cleaned = jsonMatch ? jsonMatch[0] : raw;
+    
     const parsed = JSON.parse(cleaned);
 
     return {
+      morningTitle: parsed.morningTitle || getMorningTitle(ctx.language, ctx.nickname, ctx.isRainy),
       morning: parsed.morning || getFallback('morning', ctx),
+      lunchTitle: parsed.lunchTitle || getLunchTitle(ctx.language, ctx.nickname),
       lunch: parsed.lunch || getFallback('lunch', ctx),
+      eveningTitle: parsed.eveningTitle || getEveningTitle(ctx.language, ctx.nickname),
       evening: parsed.evening || getFallback('evening', ctx),
+      tomorrowTitle: parsed.tomorrowTitle || getTomorrowTitle(ctx.language, ctx.nickname),
       tomorrowWeather: parsed.tomorrowWeather || getFallback('tomorrow', ctx),
     };
   } catch (err) {
     console.error(`AI notification generation failed for ${ctx.nickname}:`, err);
     return {
+      morningTitle: getMorningTitle(ctx.language, ctx.nickname, ctx.isRainy),
       morning: getFallback('morning', ctx),
+      lunchTitle: getLunchTitle(ctx.language, ctx.nickname),
       lunch: getFallback('lunch', ctx),
+      eveningTitle: getEveningTitle(ctx.language, ctx.nickname),
       evening: getFallback('evening', ctx),
+      tomorrowTitle: getTomorrowTitle(ctx.language, ctx.nickname),
       tomorrowWeather: getFallback('tomorrow', ctx),
     };
   }
@@ -320,11 +343,11 @@ export async function runDailyMorningAlert(): Promise<{ alertsSent: number; user
 
       const messages = await generateAllMessages(ctx);
 
-      // ─── Titles ───
-      const morningTitle = getMorningTitle(lang, nickname, rainInfo.willRain);
-      const lunchTitle = getLunchTitle(lang, nickname);
-      const eveningTitle = getEveningTitle(lang, nickname);
-      const tomorrowTitle = getTomorrowTitle(lang, nickname);
+      // ─── Titles (Now using AI versions if available) ───
+      const morningTitle = messages.morningTitle;
+      const lunchTitle = messages.lunchTitle;
+      const eveningTitle = messages.eveningTitle;
+      const tomorrowTitle = messages.tomorrowTitle;
 
       // ─── Schedule times (user local → UTC) ───
       const lunchLocalMs = userDate.getTime() + 12 * 60 * 60 * 1000;
