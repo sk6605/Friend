@@ -37,24 +37,30 @@ function TypeWriter({ texts, className }: { texts: string[]; className?: string 
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const text = texts[currentIndex];
-    const timeout = setTimeout(
-      () => {
-        if (!isDeleting) {
-          setCurrentText(text.slice(0, currentText.length + 1));
-          if (currentText.length === text.length) {
-            setTimeout(() => setIsDeleting(true), 2000);
-          }
-        } else {
-          setCurrentText(text.slice(0, currentText.length - 1));
-          if (currentText.length === 0) {
-            setIsDeleting(false);
-            setCurrentIndex((prev) => (prev + 1) % texts.length);
-          }
-        }
-      },
-      isDeleting ? 40 : 80
-    );
+    let timeout: NodeJS.Timeout;
+    const text = texts[currentIndex] || texts[0];
+
+    if (isDeleting) {
+      if (currentText === '') {
+        setIsDeleting(false);
+        setCurrentIndex((prev) => (prev + 1) % texts.length);
+      } else {
+        timeout = setTimeout(() => {
+          setCurrentText(text.substring(0, currentText.length - 1));
+        }, 40); // deletion speed
+      }
+    } else {
+      if (currentText === text) {
+        timeout = setTimeout(() => {
+          setIsDeleting(true);
+        }, 2000); // pause at the end of typing
+      } else {
+        timeout = setTimeout(() => {
+          setCurrentText(text.substring(0, currentText.length + 1));
+        }, 80); // typing speed
+      }
+    }
+
     return () => clearTimeout(timeout);
   }, [currentText, isDeleting, currentIndex, texts]);
 
@@ -293,6 +299,9 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
     '你最暖心的 AI 好朋友',
     'Your warmest AI companion',
     'Sahabat AI paling mesra anda',
+    'あなたの心温まるAIの友達',
+    '당신의 가장 따뜻한 AI 친구',
+    'Tu amigo AI más cálido'
   ];
 
   return (
@@ -309,8 +318,8 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
       >
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/25">
-              <span className="text-white text-lg">💜</span>
+            <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-lg shadow-purple-500/25 border border-purple-100">
+              <img src="/favicon.ico" alt="Lumi" className="w-full h-full object-cover" />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-purple-700 to-violet-700 bg-clip-text text-transparent">Lumi</span>
           </div>
@@ -619,8 +628,8 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
       <footer className="py-10 px-6 border-t border-purple-100/50">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
-              <span className="text-white text-sm">💜</span>
+            <div className="w-7 h-7 rounded-lg overflow-hidden bg-white flex items-center justify-center border border-purple-100">
+              <img src="/favicon.ico" alt="Lumi" className="w-full h-full object-cover" />
             </div>
             <span className="text-sm font-semibold text-neutral-600">Lumi</span>
             <span className="text-xs text-neutral-400">· Your AI Companion</span>
