@@ -5,6 +5,7 @@ import ChatPage from "./components/ChatPage";
 import Sidebar from "./components/SideBar";
 import AuthScreen from "./components/AuthScreen";
 import SettingsModal from "./components/SettingsModal";
+import LandingPage from "./components/LandingPage";
 import { getUserId, setUserId, logout } from "./utils/auth";
 import { useUserInfo } from "./lib/useUserInfo";
 import { useNotifications } from "./hooks/useNotifications";
@@ -16,7 +17,7 @@ import NotificationToast from "./components/NotificationToast";
  *
  * Logic:
  * 1. Checks authentication state via `getUserId`.
- * 2. If not logged in -> Renders `AuthScreen` (Login/Register).
+ * 2. If not logged in -> Shows LandingPage. User can click "Get Started" to register or "Login".
  * 3. If logged in -> Renders `ChatPage` with `Sidebar` and `SettingsModal`.
  * 4. Manages global state: `userId`, `sidebarOpen`, `showSettings`.
  * 5. Handles global Notifications via `NotificationToast`.
@@ -26,6 +27,8 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const { userInfo, refetch: refetchUser } = useUserInfo(userId);
   const { notifications, dismissNotification, markRead } = useNotifications(userId);
   usePushNotifications(userId || '');
@@ -37,19 +40,39 @@ export default function Home() {
 
   if (!ready) return null;
 
-  // Not logged in
+  // Not logged in — show landing or auth
   if (!userId) {
+    // User clicked Get Started or Login → show auth screen
+    if (showAuth) {
+      return (
+        <div className="flex h-screen">
+          <main className="flex-1 flex items-center justify-center px-4">
+            <AuthScreen
+              onAuth={(id) => {
+                setUserId(id);
+                setUid(id);
+                setShowAuth(false);
+              }}
+              initialView={authMode}
+              onBack={() => setShowAuth(false)}
+            />
+          </main>
+        </div>
+      );
+    }
+
+    // Default: show landing page
     return (
-      <div className="flex h-screen">
-        <main className="flex-1 flex items-center justify-center px-4">
-          <AuthScreen
-            onAuth={(id) => {
-              setUserId(id);
-              setUid(id);
-            }}
-          />
-        </main>
-      </div>
+      <LandingPage
+        onGetStarted={() => {
+          setAuthMode('register');
+          setShowAuth(true);
+        }}
+        onLogin={() => {
+          setAuthMode('login');
+          setShowAuth(true);
+        }}
+      />
     );
   }
 

@@ -6,9 +6,11 @@ interface LoginFormProps {
   onOtpSent: (email: string, devOtp?: string) => void;
   onRegister?: () => void;
   onTry?: () => void;
+  onBack?: () => void;
 }
 
-export default function LoginForm({ onOtpSent, onRegister, onTry }: LoginFormProps) {
+export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: LoginFormProps) {
+
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,18 @@ export default function LoginForm({ onOtpSent, onRegister, onTry }: LoginFormPro
           p-10
         "
       >
+        {onBack && (
+          <button
+            onClick={onBack}
+            title="Go back"
+            className="mb-4 w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-white/10 transition-all"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        )}
+
         <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-100 mb-2">Welcome back</h2>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-8">
           Enter your email to receive a login code

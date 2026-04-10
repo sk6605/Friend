@@ -11,11 +11,13 @@ type AuthView = 'register' | 'login' | 'otp';
 
 interface AuthScreenProps {
   onAuth: (userId: string) => void;
+  initialView?: 'login' | 'register';
+  onBack?: () => void;
 }
 
-export default function AuthScreen({ onAuth }: AuthScreenProps) {
-  // Always show login first; new users click "Sign up" to register
-  const [view, setView] = useState<AuthView>('login');
+export default function AuthScreen({ onAuth, initialView = 'login', onBack }: AuthScreenProps) {
+  // Use initialView prop to set starting view
+  const [view, setView] = useState<AuthView>(initialView);
   const [otpEmail, setOtpEmail] = useState('');
   const [devOtp, setDevOtp] = useState<string | undefined>();
   const [showDemo, setShowDemo] = useState(false);
@@ -28,7 +30,7 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
             markRegistered();
             setView('login');
           }}
-          onBack={hasRegistered() ? () => setView('login') : undefined}
+          onBack={hasRegistered() ? () => setView('login') : onBack}
         />
         {showDemo && (
           <DemoChat
@@ -54,6 +56,7 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
           }}
           onRegister={() => setView('register')}
           onTry={() => setShowDemo(true)}
+          onBack={onBack}
         />
         {showDemo && (
           <DemoChat

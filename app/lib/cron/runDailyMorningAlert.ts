@@ -121,82 +121,128 @@ async function generateAllMessages(ctx: GenerateContext): Promise<NotificationMe
   const langName = getLangName(ctx.language);
   const personaOverlay = getPersonaPrompt(ctx.persona);
 
-  // Build a rich context-aware prompt that lets the AI freely express based on persona
-  const prompt = `You are ${ctx.nickname}'s personal AI companion sending push notifications throughout the day. You are their close friend who genuinely cares about them.
+  // Unique seed per day to encourage variety
+  const uniqueSeed = `${ctx.date}-${ctx.dayOfWeek}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const systemPrompt = `You are ${ctx.nickname}'s personal AI companion named Lumi. You send push notifications throughout the day as their close friend who genuinely cares about them.
 
 ${personaOverlay ? `YOUR PERSONALITY:\n${personaOverlay}\n` : 'You are warm, balanced, supportive, and naturally funny.'}
+
+IMPORTANT: You MUST respond with ONLY a valid JSON object. No markdown fences, no explanation, no extra text before or after the JSON.`;
+
+  const userPrompt = `Generate 4 push notifications for ${ctx.nickname} for today.
 
 TODAY'S CONTEXT:
 - Date: ${ctx.date} (${ctx.dayOfWeek})
 - Season: ${ctx.season}
 - City: ${ctx.city}
 - Current weather: ${ctx.weatherDescription}, ${ctx.temp}°C, humidity ${ctx.humidity}%
-${ctx.isRainy ? `- ⚠️ RAIN TODAY at: ${ctx.rainPeriods} — you MUST warn them about the rain and specific times` : '- No rain expected today'}
+${ctx.isRainy ? `- ⚠️ RAIN TODAY at: ${ctx.rainPeriods} — you MUST mention rain and remind them to bring an umbrella` : '- No rain expected today'}
 
 TOMORROW'S FORECAST:
 - ${ctx.tomorrowSummary}, ${ctx.tomorrowTempMin}°C ~ ${ctx.tomorrowTempMax}°C
 ${ctx.tomorrowWillRain ? `- Rain expected at: ${ctx.tomorrowRainTimes}` : '- Clear / no rain'}
 
-Generate 4 notifications (Title + Message). Each pair must feel like a REAL text from a close friend — not robotic, not generic. Stay fully in character with your personality.
-
 RULES:
-1. Every title and message must be COMPLETELY UNIQUE — never use cliché patterns.
-2. Include weather info naturally.
-3. Titles should be short and catchy (e.g., "Morning, bestie! ☀️").
-4. Messages should be under 100 characters.
+1. Each notification (title + message) must be COMPLETELY UNIQUE and creative — never use generic templates.
+2. Weave weather info naturally into the message.
+3. Titles: short, catchy, with 1-2 emojis.
+4. Messages: under 100 characters, with 1-3 emojis. Feel like a real text from a best friend.
 5. MUST respond in ${langName} ONLY.
-6. Use 1-3 relevant emojis per title/message.
+6. Variation seed: ${uniqueSeed}
 
-Respond with EXACTLY this JSON format, no markdown, no extra text:
-{
-  "morningTitle": "...",
-  "morning": "...",
-  "lunchTitle": "...",
-  "lunch": "...",
-  "eveningTitle": "...",
-  "evening": "...",
-  "tomorrowTitle": "...",
-  "tomorrowWeather": "..."
-} `;
+The 4 notifications are:
+1. morningTitle + morning (sent at ~7:00 AM)
+2. lunchTitle + lunch (sent at ~12:00 PM)
+3. eveningTitle + evening (sent at ~6:00 PM)
+4. tomorrowTitle + tomorrowWeather (sent at ~9:00 PM, about tomorrow's weather)
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'system', content: prompt }],
-      temperature: 1.1,
-      max_tokens: 800,
-    });
+Respond with ONLY this JSON, nothing else:
+{"morningTitle":"...","morning":"...","lunchTitle":"...","lunch":"...","eveningTitle":"...","evening":"...","tomorrowTitle":"...","tomorrowWeather":"..."}`;
 
-    const raw = completion.choices[0].message?.content?.trim() || '';
-    // Enhanced JSON cleaning: extract JSON if it's wrapped in markdown
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    const cleaned = jsonMatch ? jsonMatch[0] : raw;
-    
-    const parsed = JSON.parse(cleaned);
+  // Retry up to 3 times
+  const MAX_RETRIES = 3;
+  let lastError: unknown = null;
 
-    return {
-      morningTitle: parsed.morningTitle || getMorningTitle(ctx.language, ctx.nickname, ctx.isRainy),
-      morning: parsed.morning || getFallback('morning', ctx),
-      lunchTitle: parsed.lunchTitle || getLunchTitle(ctx.language, ctx.nickname),
-      lunch: parsed.lunch || getFallback('lunch', ctx),
-      eveningTitle: parsed.eveningTitle || getEveningTitle(ctx.language, ctx.nickname),
-      evening: parsed.evening || getFallback('evening', ctx),
-      tomorrowTitle: parsed.tomorrowTitle || getTomorrowTitle(ctx.language, ctx.nickname),
-      tomorrowWeather: parsed.tomorrowWeather || getFallback('tomorrow', ctx),
-    };
-  } catch (err) {
-    console.error(`AI notification generation failed for ${ctx.nickname}:`, err);
-    return {
-      morningTitle: getMorningTitle(ctx.language, ctx.nickname, ctx.isRainy),
-      morning: getFallback('morning', ctx),
-      lunchTitle: getLunchTitle(ctx.language, ctx.nickname),
-      lunch: getFallback('lunch', ctx),
-      eveningTitle: getEveningTitle(ctx.language, ctx.nickname),
-      evening: getFallback('evening', ctx),
-      tomorrowTitle: getTomorrowTitle(ctx.language, ctx.nickname),
-      tomorrowWeather: getFallback('tomorrow', ctx),
-    };
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`[MorningAlert] AI generation attempt ${attempt}/${MAX_RETRIES} for ${ctx.nickname}`);
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.9,
+        max_tokens: 600,
+        response_format: { type: 'json_object' },
+      });
+
+      const raw = completion.choices[0].message?.content?.trim() || '';
+      console.log(`[MorningAlert] AI raw response (attempt ${attempt}): ${raw.slice(0, 200)}`);
+
+      if (!raw) {
+        throw new Error('Empty AI response');
+      }
+
+      // Clean: strip markdown fences if present
+      let cleaned = raw;
+      const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        cleaned = jsonMatch[1].trim();
+      }
+      // Extract JSON object if there's extra text around it
+      const objMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (objMatch) {
+        cleaned = objMatch[0];
+      }
+
+      const parsed = JSON.parse(cleaned);
+
+      // Validate all 8 fields exist and are non-empty strings
+      const requiredKeys = ['morningTitle', 'morning', 'lunchTitle', 'lunch', 'eveningTitle', 'evening', 'tomorrowTitle', 'tomorrowWeather'] as const;
+      const missing = requiredKeys.filter(k => !parsed[k] || typeof parsed[k] !== 'string' || parsed[k].trim().length === 0);
+
+      if (missing.length > 0) {
+        throw new Error(`AI response missing fields: ${missing.join(', ')}`);
+      }
+
+      console.log(`[MorningAlert] AI generation SUCCESS for ${ctx.nickname} on attempt ${attempt}`);
+
+      return {
+        morningTitle: parsed.morningTitle,
+        morning: parsed.morning,
+        lunchTitle: parsed.lunchTitle,
+        lunch: parsed.lunch,
+        eveningTitle: parsed.eveningTitle,
+        evening: parsed.evening,
+        tomorrowTitle: parsed.tomorrowTitle,
+        tomorrowWeather: parsed.tomorrowWeather,
+      };
+    } catch (err) {
+      lastError = err;
+      console.error(`[MorningAlert] AI attempt ${attempt}/${MAX_RETRIES} failed for ${ctx.nickname}:`, err instanceof Error ? err.message : err);
+
+      if (attempt < MAX_RETRIES) {
+        // Brief pause before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
   }
+
+  // All retries exhausted — use fallback
+  console.error(`[MorningAlert] ALL ${MAX_RETRIES} AI attempts failed for ${ctx.nickname}. Using fallback templates. Last error:`, lastError);
+  return {
+    morningTitle: getMorningTitle(ctx.language, ctx.nickname, ctx.isRainy),
+    morning: getFallback('morning', ctx),
+    lunchTitle: getLunchTitle(ctx.language, ctx.nickname),
+    lunch: getFallback('lunch', ctx),
+    eveningTitle: getEveningTitle(ctx.language, ctx.nickname),
+    evening: getFallback('evening', ctx),
+    tomorrowTitle: getTomorrowTitle(ctx.language, ctx.nickname),
+    tomorrowWeather: getFallback('tomorrow', ctx),
+  };
 }
 
 // ─── Fallbacks ──────────────────────────────────────────────────
