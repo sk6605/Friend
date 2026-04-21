@@ -12,6 +12,7 @@ interface UserInfo {
   subscription?: {
     plan?: {
       name: string;
+      displayName?: string;
     }
   } | null;
 }
