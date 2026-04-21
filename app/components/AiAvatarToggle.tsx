@@ -97,7 +97,7 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                             animate={{
                                 d: personaStyle.light.accessory === 'chillEyes'
                                     ? "M 28 48 Q 34 46 40 48" // 慵懒半闭眼
-                                    : "M 32 45 A 4 4 0 1 1 32 45.01",
+                                    : "M 32 45 Q 32 45.01 32 45.02", // 使用 Q 曲线模拟圆点，避免和 A 曲线之间的插值导致 SVG 崩溃
                                 stroke: currentStyle.eyeStroke,
                                 strokeWidth: personaStyle.light.accessory === 'chillEyes' ? 5 : 8,
                                 strokeLinecap: "round"
@@ -110,7 +110,7 @@ export default function AiAvatarToggle({ persona = 'default' }: { persona?: stri
                             animate={{
                                 d: personaStyle.light.accessory === 'chillEyes'
                                     ? "M 60 48 Q 66 46 72 48"
-                                    : "M 68 45 A 4 4 0 1 1 68 45.01",
+                                    : "M 68 45 Q 68 45.01 68 45.02", // 使用 Q 曲线模拟圆点，防止 framer motion 报错 Arc flag error
                                 stroke: currentStyle.eyeStroke,
                                 strokeWidth: personaStyle.light.accessory === 'chillEyes' ? 5 : 8,
                                 strokeLinecap: "round"
