@@ -194,9 +194,10 @@ export function useChatStream({
 
         // 更新本地组件状态 (乐观UI，立即上屏)
         // Update local state (Optimistic UI)
+        const userTempId = `temp-${Date.now()}`;
         const updatedMessages: Message[] = [
             ...messages,
-            { role: 'user', content: displayContent },
+            { id: userTempId, role: 'user', content: displayContent },
         ];
         setMessages(updatedMessages);
 
@@ -244,6 +245,18 @@ export function useChatStream({
                     type: meta.type,
                 }))
                 : undefined;
+
+            // Optimistic update again to attach the uploaded files immediately avoiding refresh
+            if (fileAttachments) {
+                setMessages(prev => {
+                    const copy = [...prev];
+                    const idx = copy.findIndex(m => m.id === userTempId);
+                    if (idx > -1) {
+                        copy[idx] = { ...copy[idx], content: userMessage, fileAttachments };
+                    }
+                    return copy;
+                });
+            }
 
             // 将用户消息存入数据库 (Fire-and-forget: 发出去就不用等结果了)
             // Save user message to DB

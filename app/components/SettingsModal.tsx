@@ -58,6 +58,9 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
   const [isPremium, setIsPremium] = useState(false);
   const [isProOrHigher, setIsProOrHigher] = useState(false);
 
+  // Email state
+  const [currentEmail, setCurrentEmail] = useState('');
+
   // Derived: cities for selected country
   const selectedCountryData = COUNTRIES.find(c => c.code === country);
   const availableCities = selectedCountryData?.cities || [];
@@ -71,6 +74,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
           setCurrentLang(data.language);
           setSelectedLang(data.language);
         }
+        if (data?.email) setCurrentEmail(data.email);
         if (data?.country) setCountry(data.country);
         if (data?.city) setCity(data.city);
         if (data?.departureTime) setDepartureTime(data.departureTime);
@@ -1020,6 +1024,16 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
           {/* Change email form */}
           {view === 'email' && (
             <form onSubmit={handleChangeEmail} className="space-y-4">
+              <div className="mb-6">
+                <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">Current Email</label>
+                <div className="text-sm text-neutral-800 dark:text-neutral-200 bg-neutral-100 dark:bg-white/5 px-4 py-3 rounded-xl border border-transparent flex items-center justify-between">
+                  <span>{currentEmail || 'Loading...'}</span>
+                  <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">New Email</label>
                 <input
@@ -1027,7 +1041,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   required
-                  placeholder="you@example.com"
+                  placeholder="new@example.com"
                   className="w-full px-4 py-2.5 rounded-xl text-sm bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-neutral-600 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 dark:focus:ring-purple-900/30 transition-all"
                 />
               </div>
