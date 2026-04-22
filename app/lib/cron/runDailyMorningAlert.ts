@@ -169,7 +169,7 @@ Respond with ONLY this JSON, nothing else:
       console.log(`[MorningAlert] AI generation attempt ${attempt}/${MAX_RETRIES} for ${ctx.nickname}`);
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -226,7 +226,7 @@ Respond with ONLY this JSON, nothing else:
 
       if (attempt < MAX_RETRIES) {
         // Brief pause before retry
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        await new Promise(resolve => setTimeout(resolve, 300 * attempt));
       }
     }
   }
