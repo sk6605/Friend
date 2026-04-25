@@ -74,7 +74,7 @@ Format your response exactly like this:
 ---UPDATED_MEMORY---
 [updated memory here]
 ---STRUCTURED_DATA---
-{"mood":"<one word mood label>","moodScore":<1-10>,"topics":["<topic1>","<topic2>",...],"emotionalState":"<brief description>"}`,
+{"mood":"<one word from: happy, excited, grateful, calm, neutral, stressed, anxious, sad, angry, lonely>","moodScore":<1-10>,"topics":["<topic1>","<topic2>",...],"emotionalState":"<brief description>"}`,
                 },
                 {
                     role: 'user',
