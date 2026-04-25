@@ -1,8 +1,22 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import StatCard from '../components/StatCard';
+import ActivityRow from '../components/ActivityRow';
 
-// ── Types ──────────────────────────────────────────────────────
+/**
+ * 模块：AdminDashboard (后台管理面板)
+ * 作用：为系统管理员提供多维度的数据洞察、用户管理、AI 个性化状态监控以及极其关键的“危机干预”功能。
+ * 
+ * 主要功能模块：
+ * 1. 数据概览 (Overview)：实时统计用户数、活跃度、对话量及情绪分布。
+ * 2. 用户管理 (Users)：查看用户详情、订阅状态、AI 记忆内容及参与度。
+ * 3. 洞察报告 (Insights)：查看系统自动生成的每日心情摘要和近期对话简报。
+ * 4. AI 个性化 (Personalization)：监控 AI 记忆词数、用户画像完整度，并可手动触发全服数据分析。
+ * 5. 危机安全 (Crisis Safety)：最核心功能。实时监控高风险用户行为，允许管理员直接介入对话 (Intervene) 或切换安全模式。
+ */
+
+// ── 类型定义 (Types) ──────────────────────────────────────────────────────
 
 interface Overview {
   totalUsers: number;
@@ -184,7 +198,8 @@ interface SafeModeUser {
   safeModeAt: string | null;
 }
 
-// ── Mood helpers ───────────────────────────────────────────────
+// ── 心情映射助手 (Mood helpers) ───────────────────────────────────────────────
+// 为后台图表和列表提供统一的视觉映射
 
 const MOOD_EMOJI: Record<string, string> = {
   happy: '\u{1F60A}', excited: '\u{1F929}', grateful: '\u{1F60C}', calm: '\u{1F60C}',
@@ -203,31 +218,38 @@ const AGE_BADGE = (g: string) =>
     g === 'teen' ? 'bg-blue-500/20 text-blue-400' :
       'bg-purple-500/20 text-purple-400';
 
-// ── Main component ─────────────────────────────────────────────
+// ── 主组件 (Main component) ─────────────────────────────────────────────
 
 export default function AdminDashboard() {
+  // 鉴权状态：本系统采用简易 AdminKey 验证，未集成完整 OAuth
   const [adminKey, setAdminKey] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
+
+  // 核心数据状态
   const [data, setData] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
-  // User detail panel
+  // 用户详情面板状态 (User Detail)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
   const [userDetailLoading, setUserDetailLoading] = useState(false);
 
-  // Trigger analysis
+  // 全服分析触发状态 (Manual Analysis Trigger)
   const [triggerLoading, setTriggerLoading] = useState(false);
   const [triggerResult, setTriggerResult] = useState<string | null>(null);
 
-  // Crisis data
+  // 危机安全状态 (Crisis & Safety)
   const [crisisEvents, setCrisisEvents] = useState<CrisisEvent[]>([]);
   const [crisisStats, setCrisisStats] = useState<CrisisStats>({ openEvents: 0, usersInSafeMode: 0, eventsToday: 0, eventsThisWeek: 0 });
   const [safeModeUsers, setSafeModeUsers] = useState<SafeModeUser[]>([]);
   const [crisisFilter, setCrisisFilter] = useState<string>('open');
 
+  /**
+   * 核心数据抓取：Analytics
+   * 获取包含概览、分配图表、用户快照在内的所有基础统计数据。
+   */
   const fetchAnalytics = useCallback(async (key: string) => {
     setLoading(true);
     setError('');
@@ -247,22 +269,42 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // 登录处理器
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminKey.trim()) fetchAnalytics(adminKey.trim());
+    if (adminKey.trim()) {
+      fetchAnalytics(adminKey.trim());
+      // 登录成功逻辑已包含在 fetchAnalytics 中，这里确保存储
+      localStorage.setItem('lumi_admin_key', adminKey.trim());
+    }
   };
 
+  // 刷新逻辑
   const refresh = useCallback(() => {
     if (adminKey) fetchAnalytics(adminKey);
   }, [adminKey, fetchAnalytics]);
 
+  // 核心：实现持久化登录 (Persistent Login)
+  // 页面加载时，尝试从 localStorage 读取密钥并自动登录
+  useEffect(() => {
+    const savedKey = localStorage.getItem('lumi_admin_key');
+    if (savedKey) {
+      setAdminKey(savedKey);
+      fetchAnalytics(savedKey);
+    }
+  }, [fetchAnalytics]);
+
+  // 实现自动刷新 (每 60 秒同步一次数据)
   useEffect(() => {
     if (!authenticated) return;
     const interval = setInterval(refresh, 60000);
     return () => clearInterval(interval);
   }, [authenticated, refresh]);
 
-  // Fetch user detail
+  /** 
+   * 查看特定用户详情
+   * 调取 API 获取该用户的敏感信息、全量对话、订阅及情绪历史。
+   */
   const openUserDetail = async (userId: string) => {
     setSelectedUserId(userId);
     setUserDetail(null);
@@ -274,7 +316,10 @@ export default function AdminDashboard() {
     setUserDetailLoading(false);
   };
 
-  // Trigger analysis
+  /** 
+   * 手动触发全服分析
+   * 调用后端 Cron 处理逻辑，遍历所有用户生成最新的 Insights、标题及同步记忆。
+   */
   const triggerAnalysis = async () => {
     setTriggerLoading(true);
     setTriggerResult(null);
@@ -293,7 +338,10 @@ export default function AdminDashboard() {
     setTriggerLoading(false);
   };
 
-  // Fetch crisis data
+  /**
+   * 获取危机安全数据
+   * 包含待处理事件、正在处于安全模式的用户列表等。
+   */
   const fetchCrisisData = useCallback(async (statusFilter?: string) => {
     try {
       const params = new URLSearchParams({ key: adminKey });
@@ -317,7 +365,7 @@ export default function AdminDashboard() {
     }
   }, [activeTab, authenticated, crisisFilter, fetchCrisisData]);
 
-  // Crisis actions
+  // 危机干预动作：确认、解决、提级或解除安全模式
   const handleCrisisAction = async (action: string, payload: Record<string, unknown>) => {
     try {
       const res = await fetch(`/api/admin/crisis?key=${encodeURIComponent(adminKey)}`, {
@@ -329,13 +377,13 @@ export default function AdminDashboard() {
     } catch { /* ignore */ }
   };
 
-  // Admin chat intervention state
+  // 管理员在线干预 (Intervene) 状态管理
   const [interveningEvent, setInterveningEvent] = useState<any>(null);
   const [adminChatMessages, setAdminChatMessages] = useState<any[]>([]);
   const [adminMessageInput, setAdminMessageInput] = useState('');
   const [adminChatLoading, setAdminChatLoading] = useState(false);
 
-  // Poll for messages when intervene modal is open
+  // 当干预弹窗开启时，开启 3 秒一次的短轮询，实现实时对话交互
   useEffect(() => {
     if (!interveningEvent) return;
     const loadChat = async () => {
@@ -348,11 +396,14 @@ export default function AdminDashboard() {
       } catch (err) { }
     };
     loadChat();
-    const timer = setInterval(loadChat, 3000); // 3s polling
+    const timer = setInterval(loadChat, 3000); // 3s 轮询
     return () => clearInterval(timer);
   }, [interveningEvent]);
 
-  // Handle open modal
+  /** 
+   * 开启干预模式
+   * 设置事件状态并进入实时聊天视窗。
+   */
   const handleIntervene = async (evt: any) => {
     if (evt.status !== 'intervening') {
       await handleCrisisAction('intervene', { eventId: evt.id });
@@ -361,6 +412,7 @@ export default function AdminDashboard() {
     setInterveningEvent({ ...evt, status: 'intervening' });
   };
 
+  // 管理员发送干预信息
   const handleSendAdminMessage = async () => {
     if (!adminMessageInput.trim() || !interveningEvent) return;
     setAdminChatLoading(true);
@@ -376,7 +428,7 @@ export default function AdminDashboard() {
       });
       if (res.ok) {
         setAdminMessageInput('');
-        // Refresh messages
+        // 发送后立即拉取最新对话
         const convRes = await fetch(`/api/conversations/${interveningEvent.conversationId}?userId=${interveningEvent.userId}`);
         if (convRes.ok) {
           const data = await convRes.json();
@@ -390,7 +442,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // ── Login screen ──
+  // ── 渲染：登录界面 (Login screen) ──
 
   if (!authenticated) {
     return (
@@ -427,6 +479,7 @@ export default function AdminDashboard() {
 
   const { overview, ageDistribution, moodDistribution, topicTrends, dailyMoodTrend, userList, dailyInsights, recentConversations, personalizationStatus } = data;
 
+  // 标签页配置
   const TABS: { key: TabKey; label: string; badge?: number }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'users', label: 'Users' },
@@ -435,7 +488,7 @@ export default function AdminDashboard() {
     { key: 'crisis', label: 'Crisis Safety', badge: crisisStats.openEvents },
   ];
 
-  // ── Dashboard ──
+  // ── 渲染：主控制台 (Dashboard) ──
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -500,7 +553,7 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* ─── TAB: Overview ─── */}
+        {/* ─── 标签页内容：数据概览 (Overview) ─── */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Age distribution + Mood distribution */}
@@ -639,7 +692,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ─── TAB: Users ─── */}
+        {/* ─── 标签页内容：用户管理 (Users) ─── */}
         {activeTab === 'users' && (
           <div className="space-y-4">
             {/* User detail modal */}
@@ -916,7 +969,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ─── TAB: Insights ─── */}
+        {/* ─── 标签页内容：每日洞察 (Insights) ─── */}
         {activeTab === 'insights' && (
           <div className="space-y-6">
             {/* Aggregate summary */}
@@ -994,7 +1047,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ─── TAB: AI Personalization ─── */}
+        {/* ─── 标签页内容：AI 个性化 (AI Personalization) ─── */}
         {activeTab === 'personalization' && (
           <div className="space-y-6">
             {/* Run Analysis button */}
@@ -1079,7 +1132,7 @@ export default function AdminDashboard() {
             )}
           </div>
         )}
-        {/* ─── TAB: Crisis Safety ─── */}
+        {/* ─── 标签页内容：危机干预 (Crisis Safety) ─── */}
         {activeTab === 'crisis' && (
           <div className="space-y-6">
             {/* Crisis stat cards */}
@@ -1239,86 +1292,61 @@ export default function AdminDashboard() {
             )}
           </div>
         )}
-      </div>
-
-      {interveningEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
-          <div className="bg-slate-900 rounded-3xl w-full max-w-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col h-[80vh]">
-            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-              <div>
-                <h3 className="text-lg font-semibold text-white">Intervening: {interveningEvent.user?.nickname || 'Unknown'}</h3>
-                <p className="text-xs text-slate-400">Risk: Level {interveningEvent.riskLevel}</p>
-              </div>
-              <button title="Close" onClick={() => setInterveningEvent(null)} className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {adminChatMessages.length === 0 && (
-                <div className="text-center text-slate-500 py-10">Loading chat history...</div>
-              )}
-              {adminChatMessages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
-                    ? 'bg-purple-600 text-white'
-                    : (msg.content.includes('[Lumi Support Team]') || msg.content.includes('[Safety Support]') || msg.content.includes('[Admin]'))
-                      ? 'bg-red-600/20 text-red-100 border border-red-500/30'
-                      : 'bg-slate-800 text-slate-200'
-                    }`}>
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                    <span className="text-[10px] opacity-50 mt-1 block">{new Date(msg.createdAt).toLocaleTimeString()}</span>
-                  </div>
+        {/* 全屏模态框：管理员在线干预会话 (Intervention Modal) */}
+        {interveningEvent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
+            <div className="bg-slate-900 rounded-3xl w-full max-w-2xl border border-slate-700 shadow-2xl overflow-hidden flex flex-col h-[80vh]">
+              <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Intervening: {interveningEvent.user?.nickname || 'Unknown'}</h3>
+                  <p className="text-xs text-slate-400">Risk: Level {interveningEvent.riskLevel}</p>
                 </div>
-              ))}
-            </div>
-
-            <div className="p-4 bg-slate-800/50 border-t border-slate-800">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={adminMessageInput}
-                  onChange={(e) => setAdminMessageInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendAdminMessage()}
-                  placeholder="Type a message as Lumi Support Team..."
-                  className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500 transition-colors"
-                />
-                <button
-                  onClick={handleSendAdminMessage}
-                  disabled={adminChatLoading || !adminMessageInput.trim()}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium text-sm rounded-xl transition-colors"
-                >
-                  Send
+                <button title="Close" onClick={() => setInterveningEvent(null)} className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {adminChatMessages.length === 0 && (
+                  <div className="text-center text-slate-500 py-10">Loading chat history...</div>
+                )}
+                {adminChatMessages.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
+                      ? 'bg-purple-600 text-white'
+                      : (msg.content.includes('[Lumi Support Team]') || msg.content.includes('[Safety Support]') || msg.content.includes('[Admin]'))
+                        ? 'bg-red-600/20 text-red-100 border border-red-500/30'
+                        : 'bg-slate-800 text-slate-200'
+                      }`}>
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <span className="text-[10px] opacity-50 mt-1 block">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4 bg-slate-800/50 border-t border-slate-800">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={adminMessageInput}
+                    onChange={(e) => setAdminMessageInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendAdminMessage()}
+                    placeholder="Type a message as Lumi Support Team..."
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-red-500 transition-colors"
+                  />
+                  <button
+                    onClick={handleSendAdminMessage}
+                    disabled={adminChatLoading || !adminMessageInput.trim()}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium text-sm rounded-xl transition-colors"
+                  >
+                    Send
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-// ── Helper components ──────────────────────────────────────────
-
-function StatCard({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
-  return (
-    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-4 sm:p-5">
-      <p className="text-xs text-slate-500 font-medium mb-1">{label}</p>
-      <p className="text-xl sm:text-2xl font-bold text-white">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
-    </div>
-  );
-}
-
-function ActivityRow({ label, value, subLabel }: { label: string; value: number | string; subLabel?: string }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-slate-800 last:border-0">
-      <span className="text-sm text-slate-400">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-white">{typeof value === 'number' ? value.toLocaleString() : value}</span>
-        {subLabel && <span className="text-xs text-slate-600">{subLabel}</span>}
+        )}
       </div>
     </div>
   );
