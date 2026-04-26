@@ -8,33 +8,44 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey });
 }
 
-// ─── Types ───
+/**
+ * 接口：/api/insights
+ * 作用：智能心理健康分析引擎。
+ * 
+ * 核心流程：
+ * 1. 【数据采集】：从数据库拉取指定时间段（3天/7天/月度）的 DailyInsight 记录。
+ * 2. 【硬性聚合】：通过 aggregateInsights 函数绘制情绪分布柱状图、心情曲线图、高频话题词云。
+ * 3. 【AI 语义挖掘】：深度分析用户的思维模式（如：是否属于非黑即白、过度概括等认知失真）。
+ * 4. 【行动建议】：调用 GPT-4 针对当下的心理状态生成个性化的“干预方案”（Interventions），如认知练习或行为改善建议。
+ */
+
+// ─── 类型定义 ───
 
 interface EmotionItem {
-  mood: string;
-  percentage: number;
-  count: number;
-  topTriggers: string[];
-  topTopics: string[];
+  mood: string;        // 情绪名称 (如 Happy, Anxious)
+  percentage: number;  // 占比
+  count: number;       // 出现天数
+  topTriggers: string[]; // 该情绪最常见的诱因
+  topTopics: string[];   // 该情绪下最常聊的话题
 }
 
 interface AggregatedData {
-  emotionBreakdown: EmotionItem[];
-  moodCurve: { date: string; moodScore: number; mood: string }[];
-  triggers: { name: string; count: number }[];
-  patterns: { name: string; count: number }[];
-  topics: { name: string; count: number }[];
-  dayOfWeek: { day: string; avgMood: number; count: number }[];
+  emotionBreakdown: EmotionItem[]; // 情绪分布
+  moodCurve: { date: string; moodScore: number; mood: string }[]; // 心情走势
+  triggers: { name: string; count: number }[]; // 频率诱因
+  patterns: { name: string; count: number }[]; // 思维模式统计
+  topics: { name: string; count: number }[];   // 热门话题
+  dayOfWeek: { day: string; avgMood: number; count: number }[]; // 周期性波动
   summary: {
-    avgMood: number | null;
-    trend: 'improving' | 'stable' | 'declining';
+    avgMood: number | null; // 平均表现
+    trend: 'improving' | 'stable' | 'declining'; // 发展趋势
     totalMessages: number;
     totalDays: number;
     topTrigger: string | null;
     topPattern: string | null;
   };
-  naturalInsights: string[];
-  interventions: { type: 'cognitive' | 'behavioral' | 'support'; title: string; description: string; reason: string }[];
+  naturalInsights: string[]; // AI 生成的文字洞察
+  interventions: { type: 'cognitive' | 'behavioral' | 'support'; title: string; description: string; reason: string }[]; // AI 生成的干预方案
 }
 
 // ─── Shared aggregation helper ───
@@ -52,8 +63,12 @@ interface InsightRow {
   messageCount: number;
 }
 
+/**
+ * 函数：数据聚合器 (aggregateInsights)
+ * 作用：将原始的 DailyInsight 数组转换为前端图表所需的聚合形式。
+ */
 function aggregateInsights(insights: InsightRow[]): AggregatedData {
-  // Emotion breakdown
+  // 1. 统计情绪分布 (情绪名称 -> 频次/诱因/话题)
   const moodGroups: Record<string, { count: number; triggers: Set<string>; topics: Set<string> }> = {};
   for (const i of insights) {
     if (!i.mood) continue;
@@ -79,7 +94,7 @@ function aggregateInsights(insights: InsightRow[]): AggregatedData {
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Mood curve
+  // 2. 构造心情趋势曲线
   const moodCurve = insights
     .filter(i => i.moodScore !== null)
     .map(i => ({
@@ -88,7 +103,7 @@ function aggregateInsights(insights: InsightRow[]): AggregatedData {
       mood: i.mood || '',
     }));
 
-  // Trigger frequency
+  // 3. 计算高频诱因排行榜
   const triggerCounts: Record<string, number> = {};
   for (const i of insights) {
     if (i.triggerEvent) {
@@ -101,7 +116,7 @@ function aggregateInsights(insights: InsightRow[]): AggregatedData {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // Thinking pattern counts
+  // 4. 分析思维模式频率 (如：认知失真类别)
   const patternCounts: Record<string, number> = {};
   for (const i of insights) {
     if (i.thinkingPattern) {
@@ -113,7 +128,7 @@ function aggregateInsights(insights: InsightRow[]): AggregatedData {
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
 
-  // Topic trends
+  // 5. 关键词话题汇总
   const topicCounts: Record<string, number> = {};
   for (const i of insights) {
     if (i.topics) {
@@ -131,7 +146,7 @@ function aggregateInsights(insights: InsightRow[]): AggregatedData {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // Summary
+  // 6. 生成核心统计摘要及趋势判断 (改善/稳定/下滑)
   const scoredInsights = insights.filter(i => i.moodScore !== null);
   const avgMood = scoredInsights.length > 0
     ? Math.round(scoredInsights.reduce((a, b) => a + b.moodScore!, 0) / scoredInsights.length * 10) / 10
@@ -150,7 +165,7 @@ function aggregateInsights(insights: InsightRow[]): AggregatedData {
     else if (diff < -0.5) trend = 'declining';
   }
 
-  // Day-of-week breakdown
+  // 7. 周内周期性分析 (周一至周日哪天心情最好)
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dayGroups: Record<string, { total: number; count: number }> = {};
   for (const d of dayNames) dayGroups[d] = { total: 0, count: 0 };
@@ -190,6 +205,11 @@ function aggregateInsights(insights: InsightRow[]): AggregatedData {
 /**
  * Generate natural-language insights and growth interventions using GPT.
  * Only called for multi-day views (3-day, 7-day, 15-day, monthly).
+ */
+/**
+ * 函数：AI 语义化分析 (generateNaturalInsights)
+ * 作用：调用 GPT 模型，对聚合后的硬性数据进行“翻译”，输出可读的成长建议。
+ * 备注：仅在查看 3天/7天/月度报表时触发，以保证有足够的样本量。
  */
 async function generateNaturalInsights(data: AggregatedData): Promise<{ insights: string[]; interventions: AggregatedData['interventions'] }> {
   try {
@@ -254,7 +274,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // ─── META ───
+    // ─── META 分支：获取统计范围的元数据 ───
     if (tab === 'meta') {
       const first = await prisma.dailyInsight.findFirst({
         where: { userId },
@@ -268,9 +288,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ─── DAILY ───
+    // ─── DAILY 分支：获取单日详细报告（包含实时数据） ───
     if (tab === 'daily') {
-      // Check dataControl + restriction
+      // 1. 状态检查：数据脱敏或账号封禁时禁用
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { dataControl: true, restricted: true },
@@ -283,7 +303,7 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // Build available dates: all DailyInsight dates + today if messages exist
+      // 2. 构建可选日期列表 (有历史记录的天数 + 今天)
       const allInsights = await prisma.dailyInsight.findMany({
         where: { userId },
         select: { date: true },
@@ -318,7 +338,7 @@ export async function GET(req: NextRequest) {
       selEnd.setHours(23, 59, 59, 999);
       const isToday = selectedDate === todayStr;
 
-      // ─── Hourly activity chart (messages grouped by hour) ───
+      // 3. 按小时聚合消息活跃度 (Hourly Activity)
       const dayMessages = await prisma.message.findMany({
         where: {
           conversation: { userId },
@@ -342,9 +362,9 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // ─── For today: build real-time insight from actual messages ───
+      // 4. 实时数据与历史存档的并集处理
       if (isToday) {
-        // Get actual message content for sentiment analysis
+        // 如果查询的是今天，尝试从最新消息中提取分析结果
         const todayConvMessages = await prisma.message.findMany({
           where: {
             conversation: { userId },
@@ -355,34 +375,15 @@ export async function GET(req: NextRequest) {
           orderBy: { createdAt: 'asc' },
         });
 
-        // Check if a DailyInsight already exists for today (from cron)
+        const totalAllMsgs = dayMessages.length;
+        const activeHours = hourlyData.filter(h => h.total > 0);
+
+        // 如果 Cron 任务已经生成了今日的初步总结，则展示该存档数据
         const existingInsight = await prisma.dailyInsight.findFirst({
           where: { userId, date: { gte: selStart, lte: selEnd } },
           orderBy: { date: 'desc' },
         });
 
-        // Compute basic real-time stats from messages
-        const totalUserMsgs = todayConvMessages.length;
-        const totalAllMsgs = dayMessages.length;
-
-        // Activity periods
-        const activePeriods: string[] = [];
-        const activeHours = hourlyData.filter(h => h.total > 0);
-        if (activeHours.length > 0) {
-          const first = activeHours[0].label;
-          const last = activeHours[activeHours.length - 1].label;
-          activePeriods.push(`${first} — ${last}`);
-        }
-
-        // Conversation count today
-        const todayConvCount = await prisma.conversation.count({
-          where: {
-            userId,
-            updatedAt: { gte: selStart, lte: selEnd },
-          },
-        });
-
-        // If cron already ran today, use that insight data; otherwise mark as live
         let insightData = null;
         if (existingInsight) {
           let parsedTopics: string[] = [];
@@ -406,25 +407,20 @@ export async function GET(req: NextRequest) {
           tab: 'daily',
           hasData: totalAllMsgs > 0,
           disabled: false,
-          isRealTime: true,
+          isRealTime: true, // 标记为实时视图
           selectedDate,
           availableDates,
           hourlyData,
           realTime: {
             totalMessages: totalAllMsgs,
-            userMessages: totalUserMsgs,
-            conversations: todayConvCount,
-            activeHours: activeHours.length,
-            activePeriod: activePeriods[0] || null,
-            peakHour: activeHours.length > 0
-              ? activeHours.reduce((a, b) => a.total > b.total ? a : b).label
-              : null,
+            userMessages: todayConvMessages.length,
+            peakHour: activeHours.length > 0 ? activeHours.reduce((a, b) => a.total > b.total ? a : b).label : null,
           },
           insight: insightData,
         });
       }
 
-      // ─── Historical date: use stored DailyInsight ───
+      // 历史档案处理
       const insight = await prisma.dailyInsight.findFirst({
         where: { userId, date: { gte: selStart, lte: selEnd } },
         orderBy: { date: 'desc' },
@@ -451,8 +447,6 @@ export async function GET(req: NextRequest) {
       return Response.json({
         tab: 'daily',
         hasData: true,
-        disabled: false,
-        isRealTime: false,
         selectedDate,
         availableDates,
         hourlyData,
@@ -467,12 +461,11 @@ export async function GET(req: NextRequest) {
           emotionalState: insight.emotionalState,
           summary: insight.summary,
           messageCount: insight.messageCount,
-          date: insight.date.toISOString().slice(0, 10),
         },
       });
     }
 
-    // ─── 3-DAY ───
+    // ─── 3DAY 分支：过去三天的局部聚合分析 ───
     if (tab === '3day') {
       const endDate = new Date();
       const startDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
@@ -480,19 +473,12 @@ export async function GET(req: NextRequest) {
       endDate.setHours(23, 59, 59, 999);
 
       const insights = await prisma.dailyInsight.findMany({
-        where: {
-          userId,
-          date: { gte: startDate, lte: endDate },
-        },
+        where: { userId, date: { gte: startDate, lte: endDate } },
         orderBy: { date: 'asc' },
       });
 
       if (insights.length === 0) {
-        return Response.json({
-          tab: '3day',
-          available: false,
-          daysUntilAvailable: 1,
-        });
+        return Response.json({ tab: '3day', available: false, daysUntilAvailable: 1 });
       }
 
       const data = aggregateInsights(insights);
@@ -509,7 +495,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ─── WEEKLY ───
+    // ─── WEEKLY 分支：周度报告，支持按周索引切换 ───
     if (tab === 'weekly') {
       const totalDays = await prisma.dailyInsight.count({ where: { userId } });
       if (totalDays < 7) {
@@ -534,11 +520,9 @@ export async function GET(req: NextRequest) {
       const now = new Date();
       now.setHours(23, 59, 59, 999);
 
-      // Calculate total elapsed days and number of complete weeks
       const elapsed = Math.floor((now.getTime() - firstDate.getTime()) / (24 * 60 * 60 * 1000));
       const totalWeeks = Math.max(1, Math.ceil(elapsed / 7));
 
-      // Build available weeks list (most recent first)
       const availableWeeks: { index: number; label: string; startDate: string; endDate: string }[] = [];
       for (let w = 0; w < totalWeeks; w++) {
         const weekStart = new Date(firstDate.getTime() + w * 7 * 24 * 60 * 60 * 1000);
@@ -551,7 +535,7 @@ export async function GET(req: NextRequest) {
           endDate: weekEnd.toISOString().slice(0, 10),
         });
       }
-      availableWeeks.reverse(); // most recent first
+      availableWeeks.reverse();
 
       const weekIndex = parseInt(req.nextUrl.searchParams.get('weekIndex') || '0');
       const selected = availableWeeks[weekIndex] || availableWeeks[0];
@@ -582,7 +566,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ─── 15-DAY ───
+    // ─── 15-DAY 分支：半月度趋势分析 ───
     if (tab === '15day') {
       const totalDays = await prisma.dailyInsight.count({ where: { userId } });
       if (totalDays < 15) {
@@ -638,9 +622,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ─── MONTHLY ───
+    // ─── MONTHLY 分支：月度报告，支持跨月份选择 ───
     if (tab === 'monthly') {
-      // Get all distinct months with data
       const allInsights = await prisma.dailyInsight.findMany({
         where: { userId },
         select: { date: true },
@@ -648,21 +631,14 @@ export async function GET(req: NextRequest) {
       });
 
       const monthSet = new Set<string>();
-      for (const i of allInsights) {
-        monthSet.add(i.date.toISOString().slice(0, 7));
-      }
-      const availableMonths = [...monthSet]
-        .sort()
-        .reverse()
-        .map(m => {
-          const [y, mo] = m.split('-');
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          return { value: m, label: `${monthNames[parseInt(mo) - 1]} ${y}` };
-        });
+      for (const i of allInsights) monthSet.add(i.date.toISOString().slice(0, 7));
+      const availableMonths = [...monthSet].sort().reverse().map(m => {
+        const [y, mo] = m.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return { value: m, label: `${monthNames[parseInt(mo) - 1]} ${y}` };
+      });
 
-      if (availableMonths.length === 0) {
-        return Response.json({ tab: 'monthly', availableMonths: [], selectedMonth: null, data: null });
-      }
+      if (availableMonths.length === 0) return Response.json({ tab: 'monthly', availableMonths: [], selectedMonth: null, data: null });
 
       const monthParam = req.nextUrl.searchParams.get('month') || availableMonths[0].value;
       const [year, month] = monthParam.split('-').map(Number);

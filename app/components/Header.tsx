@@ -1,3 +1,8 @@
+/**
+ * 组件：全剧公共悬浮顶栏 (Header / Navbar)
+ * 作用：贯穿全应用的主控栏。挂载了抽屉(Sidebar)的触发汉堡包按钮、状态心跳监测灯、以及导出等功能。
+ * 设计：位于所有界面的最顶层 (z-20)，并且带有 iOS 级的磨砂亚克力玻璃效果 (backdrop-blur-xl)。
+ */
 export default function ChatHeader({
   aiName,
   onOpenSidebar,
@@ -19,7 +24,7 @@ export default function ChatHeader({
       bg-white/80 dark:bg-[#0f0e17]/80 backdrop-blur-xl
       z-20 relative
     ">
-      {/* Hamburger — mobile only */}
+      {/* Hamburger — mobile only (专供手机模式下呼出左侧隐藏菜单) */}
       {onOpenSidebar && (
         <button
           onClick={onOpenSidebar}
@@ -32,17 +37,17 @@ export default function ChatHeader({
         </button>
       )}
 
-      {/* Heart */}
+      {/* Heart (脉搏跳动效果的心形彩蛋) */}
       <span className="heartbeat" aria-hidden="true">
         &#9829;
       </span>
 
-      {/* Status */}
+      {/* Status (AI 尊称栏) */}
       <span className="text-sm font-medium text-purple-600/80 dark:text-purple-400/90">
         {aiName || 'Lumi'}
       </span>
 
-      {/* Streak */}
+      {/* Streak (展示用户的火焰连击天数徽章) */}
       {streak !== undefined && streak > 0 && (
         <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/30 rounded-full border border-orange-200 dark:border-orange-800/50" title={`${streak} day streak!`}>
           <span className="text-orange-500 text-xs">🔥</span>
@@ -51,6 +56,7 @@ export default function ChatHeader({
       )}
 
       <div className="ml-auto flex items-center gap-2">
+        {/* Export功能：提供一键将聊天室数据以大文件形式下到本地储存 */}
         {onExport && (
           <button
             onClick={onExport}
@@ -64,7 +70,7 @@ export default function ChatHeader({
           </button>
         )}
 
-        {/* Daily Challenge Icon */}
+        {/* Daily Challenge Icon (任务弹窗召唤器) */}
         {onOpenChallenge && (
           <button
             onClick={onOpenChallenge}
@@ -78,8 +84,7 @@ export default function ChatHeader({
           </button>
         )}
 
-
-
+        {/* 象征后台正常运转的绿色呼吸小灯 */}
         <span className="flex items-center gap-1.5 text-xs text-emerald-500 dark:text-emerald-400">
           <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
           Online

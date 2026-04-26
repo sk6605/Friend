@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 
 /**
  * 消息对象的结构定义
- * Interface defining the structure of a chat message.
  */
 export interface Message {
     id?: string;
@@ -14,25 +13,27 @@ export interface Message {
 
 /**
  * useChatStream 所需的配置参数 
- * Props required for the useChatStream hook.
  */
 interface UseChatStreamProps {
     userId: string;
     initialConvId: string | undefined;
-    addConversation: (conv: any) => void;
-    updateConversationTitle: (id: string, title: string) => void;
-    onSafeModeTrigger?: (convId: string) => void;
-    isVoice?: boolean;
-    speak?: (text: string) => void;
-    checkSafeMode?: (id: string) => boolean;
+    addConversation: (conv: any) => void; // 用于向侧边栏添加新会话
+    updateConversationTitle: (id: string, title: string) => void; // 用于同步侧边栏标题
+    onSafeModeTrigger?: (convId: string) => void; // 当触发安全模式时的回调
+    isVoice?: boolean; // 是否开启语音朗读
+    speak?: (text: string) => void; // 语音合成函数
+    checkSafeMode?: (id: string) => boolean; // 检查当前是否处于危机干预状态
 }
 
 /**
  * 核心 Hooks: useChatStream
- * 负责处理聊天对话的所有网络请求、流式读取 (Streaming)、断线重连 (Auto-reconnect) 和文件上传逻辑。
+ * 负责处理聊天对话的所有网络交互。
  * 
- * Core Hook for Chat Streaming.
- * Handles API calls, stream reading, auto-reconnection, and file uploads.
+ * 核心特性：
+ * 1. 乐观 UI (Optimistic UI)：发送即上屏。
+ * 2. 流式响应 (Streaming)：实时展示 AI 生成的内容。
+ * 3. 弹性连接 (Resilience)：具备断线重连、超时处理以及自动恢复上下文的重试机制。
+ * 4. 危机轮询 (SafeMode Polling)：当账户受限时，切换为短轮询模式接收人工回复。
  */
 export function useChatStream({
     userId,
@@ -45,13 +46,17 @@ export function useChatStream({
     checkSafeMode
 }: UseChatStreamProps) {
 
-    // 状态管理 / State Management
-    const [messages, setMessages] = useState<Message[]>([]); // 聊天消息列表 / List of messages
-    const [currentConvId, setCurrentConvId] = useState(initialConvId ?? ''); // 当前对话的 ID / Active conversation ID
-    const [isLoading, setIsLoading] = useState(false); // 是否正在等待 AI 响应 (显示思考动画) / Shows thinking dots
-    const [isStreaming, setIsStreaming] = useState(false); // 是否处于流式响应进行中 (锁定输入框) / Locks input during stream
+    // ─── 状态管理 ───
+    const [messages, setMessages] = useState<Message[]>([]); // 消息列表缓存
+    const [currentConvId, setCurrentConvId] = useState(initialConvId ?? ''); // 当前会话 ID
+    const [isLoading, setIsLoading] = useState(false); // 是否正在加载（显示思考动画）
+    const [isStreaming, setIsStreaming] = useState(false); // 是否处于流输出中（禁用发送按钮）
 
-    // Polling mechanism for Safe Mode (to receive real-time Admin intervention messages)
+    /**
+     * 逻辑：危机干预轮询机制
+     * 当 checkSafeMode 返回 true 时，由于 AI 已被静默，我们需要定期向服务器请求数据，
+     * 以便实时接收管理员发送的人工干预/指导消息。
+     */
     useEffect(() => {
         const isSafe = checkSafeMode && currentConvId ? checkSafeMode(currentConvId) : false;
         if (!isSafe || !currentConvId) return;
@@ -65,6 +70,7 @@ export function useChatStream({
                 .then(data => {
                     if (data && data.messages) {
                         setMessages(prev => {
+                            // 仅当数据库返回的消息数量更多或内容有变时更新，避免 UI 抖动
                             if (data.messages.length > prev.length) {
                                 return data.messages;
                             } else if (data.messages.length === prev.length && prev.length > 0) {
@@ -78,10 +84,10 @@ export function useChatStream({
                         });
                     }
                 })
-                .catch(() => { /* ignore polling errors */ });
+                .catch(() => { /* 忽略轮询错误 */ });
         };
 
-        // Fetch immediately, then poll every 3s
+        // 立即执行一次，并每 3 秒检测一次
         fetchMessages();
         const timer = setInterval(fetchMessages, 3000);
 
@@ -89,9 +95,8 @@ export function useChatStream({
     }, [checkSafeMode, currentConvId, userId]);
 
     /**
-     * waitForNetwork()
-     * 断线重连机制：等待网络恢复在线。
-     * Auto-reconnection resilience. Returns a Promise that resolves when navigator.onLine becomes true.
+     * 辅助逻辑：断线重连等待
+     * 返回一个 Promise，当 navigator.onLine 恢复为 true 时 resolve。
      */
     const waitForNetwork = (): Promise<void> => {
         if (navigator.onLine) return Promise.resolve();
@@ -101,8 +106,7 @@ export function useChatStream({
                 resolve();
             };
             window.addEventListener('online', handler);
-            // 安全机制：最多等待 60 秒，超时则继续 (可能网络并没有完全断开，只是探测失败)
-            // Safety: don't wait forever (60s limit)
+            // 安全冗余：最多等待 60 秒
             setTimeout(() => {
                 window.removeEventListener('online', handler);
                 resolve();
@@ -111,9 +115,8 @@ export function useChatStream({
     };
 
     /**
-     * readWithTimeout(reader, ms)
-     * 带超时机制的流式读取器，防止由于网络原因导致 stream 挂起。
-     * Prevents stream hanging. Races the reader.read() against a timeout (ms).
+     * 辅助逻辑：带超时的读取流
+     * 防止在弱网环境下流读取死锁 (Hanging)。
      */
     const readWithTimeout = (
         reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -127,11 +130,10 @@ export function useChatStream({
     };
 
     /**
-     * 检查错误是否属于网络相关错误
-     * Detects if an error is network related.
+     * 辅助逻辑：识别网络类型错误
      */
     const isNetworkError = (err: unknown): boolean => {
-        if (err instanceof TypeError) return true; // fetch network error (TypeError is thrown by fetch on unreachability)
+        if (err instanceof TypeError) return true; // fetch 的网络中断通常抛出 TypeError
         if (err instanceof Error) {
             const m = err.message.toLowerCase();
             return (
@@ -146,27 +148,18 @@ export function useChatStream({
     };
 
     /**
-     * setLocalMessages(msgs)
-     * 允许外部组件 (如 ChatPage) 手动更新或覆盖本地消息列表 (例如用于清空或初次加载)
-     * Allows external components to override messages (e.g. initial load or deletion).
+     * 暴露给外部刷新消息列表的方法
      */
     const setLocalMessages: React.Dispatch<React.SetStateAction<Message[]>> = setMessages;
 
     /**
-     * handleSendMessage(userMessage, files)
-     * 发送消息的主编排器函数 (Orchestrator)
-     * 步骤:
-     * 1. 乐观 UI 更新：立即将用户消息显示在屏幕上 (Optimistic UI)
-     * 2. 如果没有对话 ID，则调用 API 创建新对话 (Creates conversation if none exists)
-     * 3. 如果带有附件，先上传文件并获取 URLs (Uploads files first)
-     * 4. 调用 /api/chat 发起流式请求 (Starts streaming process)
-     * 5. 处理重试机制 (Retry loop for network resilience)
+     * 核心逻辑：handleSendMessage (消息编排器)
+     * 该函数协调了：会话创建 -> 文件上传 -> UI 乐观更新 -> 数据库保存 -> AI 流式请求 -> 错误重试的全流程。
      */
     const handleSendMessage = async (userMessage: string, files?: File[]) => {
         let convId = currentConvId;
 
-        // 1. 如果当前没有活跃对话，自动创建一个
-        // If no active conversation, create one.
+        // 1. 如果是新会话，先进行初始化（创建房间）
         if (!convId) {
             try {
                 const response = await fetch('/api/conversations', {
@@ -178,22 +171,20 @@ export function useChatStream({
                 const newConversation = await response.json();
                 convId = newConversation.id;
                 setCurrentConvId(convId);
-                addConversation(newConversation); // Update sidebar state
+                addConversation(newConversation); // 同步侧边栏列表
                 updateConversationTitle(newConversation.id, newConversation.title);
             } catch (error) {
-                console.error('创建对话失败 / Error creating conversation:', error);
+                console.error('Failed to initialize conversation:', error);
                 return;
             }
         }
 
-        // 2. 准备要在UI上显示的内容 (如果带有文件附件)
-        // Prepare display content with file tags
+        // 2. 构造 UI 展示内容（处理文件附件标记）
         const displayContent = files && files.length > 0
             ? `${userMessage}\n\n【已上传文件】${files.map(f => f.name).join(', ')}`
             : userMessage;
 
-        // 更新本地组件状态 (乐观UI，立即上屏)
-        // Update local state (Optimistic UI)
+        // 3. 乐观 UI 更新：让用户立即看到自己的消息，无需等待后台
         const userTempId = `temp-${Date.now()}`;
         const updatedMessages: Message[] = [
             ...messages,
@@ -201,15 +192,15 @@ export function useChatStream({
         ];
         setMessages(updatedMessages);
 
-        // 如果是危机干预模式，跳过加载动画和输入锁定 (Skip loading/lock in crisis mode)
+        // 判定安全模式：干预模式下不锁定输入，不显示助理正在输入中 (思考动画)
         const isSafe = checkSafeMode && currentConvId ? checkSafeMode(currentConvId) : false;
         if (!isSafe) {
-            setIsLoading(true); // 显示"思考中"动画
-            setIsStreaming(true); // 锁定输入框
+            setIsLoading(true);
+            setIsStreaming(true);
         }
 
         try {
-            // 3. 处理文件上传 (Upload files logic)
+            // 4. 处理附件上传逻辑
             let fileUrls: string[] = [];
             let fileMetadata: { name: string; size: number; type: string }[] = [];
             let fileExtractedTexts: (string | undefined)[] = [];
@@ -236,7 +227,6 @@ export function useChatStream({
                 }
             }
 
-            // Build file attachments metadata for message storage
             const fileAttachments = fileUrls.length > 0
                 ? fileMetadata.map((meta, i) => ({
                     name: meta.name,
@@ -246,7 +236,7 @@ export function useChatStream({
                 }))
                 : undefined;
 
-            // Optimistic update again to attach the uploaded files immediately avoiding refresh
+            // 如果有附件，二次乐观更新 user 消息气泡，挂载真实链接以便即时预览
             if (fileAttachments) {
                 setMessages(prev => {
                     const copy = [...prev];
@@ -258,8 +248,7 @@ export function useChatStream({
                 });
             }
 
-            // 将用户消息存入数据库 (Fire-and-forget: 发出去就不用等结果了)
-            // Save user message to DB
+            // 5. 保存用户消息到数据库 (异步持久化，不阻塞 AI 响应)
             const saveMsgPromise = fetch(`/api/conversations/${convId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -270,11 +259,10 @@ export function useChatStream({
                 }),
             });
 
-            // 如果处于安全模式，我们只需要保存消息并确保 AI 处于静默状态
+            // 6. 危机模式检测：如果是人工干预中，则跳过 AI 流输出
             if (isSafe) {
                 await saveMsgPromise;
-                // 调用一次 API/chat 以触发可能的后续危机评估 (如二次触发告知 Admin)
-                // 此时 API 会因为 SafeMode 而返回 Response(null)
+                // 请求聊天 API 仅用于触发后台风险评估逻辑，无需返回文本
                 await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -284,13 +272,13 @@ export function useChatStream({
                         userId,
                     }),
                 });
-                return; // 直接返回，保持输入框解锁
+                return;
             }
 
-            // 4. 发起核心的聊天流式请求 (Stream with auto-retry)
+            // 7. 发起 AI 聊天流式请求 (搭载 25s 自动重试接力机制)
             let assistantText = '';
             let bubbleInserted = false;
-            const MAX_RETRIES = 2; // 最多重试2次
+            const MAX_RETRIES = 2; // 网络抖动重试次数上限
             let attempt = 0;
 
             while (attempt <= MAX_RETRIES) {
@@ -302,8 +290,7 @@ export function useChatStream({
                             messages: updatedMessages,
                             conversationId: convId,
                             userId,
-                            // 如果是重试，则把之前已经生成的一半内容传回给服务器，让大模型接着写
-                            // On retry, send partial text so AI continues from where it stopped
+                            // 重试接力：若之前已生成半句，通知服务端从该处继续，避免重复消耗 Token
                             resumeAssistant: attempt > 0 && assistantText ? assistantText : undefined,
                             fileUrls: fileUrls.length > 0 ? fileUrls : undefined,
                             fileMetadata: fileMetadata.length > 0 ? fileMetadata : undefined,
@@ -311,8 +298,7 @@ export function useChatStream({
                         }),
                     });
 
-                    // 处理常见的接口错误 (例如每日消息限额已达上限)
-                    // Handle standard HTTP errors (e.g. daily limit reached)
+                    // 检查响应状态（如处理会员额度用尽）
                     if (!response.ok) {
                         const errBody = await response.json().catch(() => ({}));
                         if (errBody.limitReached) {
@@ -320,15 +306,14 @@ export function useChatStream({
                                 ...prev,
                                 { role: 'assistant', content: `You've used all ${errBody.dailyLimit} messages for today! Come back tomorrow, or upgrade your plan for unlimited messages. 💜` },
                             ]);
-                            return; // 直接退出，不再重试
+                            return;
                         }
-                        throw new Error(errBody.error || `AI response failed (${response.status})`);
+                        throw new Error(errBody.error || `Error (${response.status})`);
                     }
 
-                    // 如果服务器返回的安全模式标记为 true，触发回调通知 ChatPage
-                    // Detect SAFE_MODE activation from server response headers
-                    if (response.headers.get('X-Safe-Mode') === 'true') {
-                        if (onSafeModeTrigger) onSafeModeTrigger(convId);
+                    // 检查由后端危机检测器触发的安全模式头
+                    if (response.headers.get('X-Safe-Mode') === 'true' && onSafeModeTrigger) {
+                        onSafeModeTrigger(convId);
                     }
 
                     const reader = response.body?.getReader();
@@ -336,13 +321,9 @@ export function useChatStream({
 
                     const decoder = new TextDecoder();
                     let started = assistantText.length > 0;
+                    const CHUNK_TIMEOUT = 45_000; // 单个块的最长等待时间
 
-                    // 在UI中插入一个空的 Assistant 气泡，准备接收流式数据
-                    // (Moved inside the while loop to prevent empty bubbles on AI pause)
-
-                    const CHUNK_TIMEOUT = 45_000; // 每个流式块(Chunk)的最大等待时间: 45秒
-
-                    // ✅ 开始逐块读取流 (The Streaming Loop)
+                    // ✅ 流式读取循环：逐块接收文本并实时上屏
                     while (true) {
                         const { value, done } = await readWithTimeout(reader, CHUNK_TIMEOUT);
                         if (done) break;
@@ -350,7 +331,7 @@ export function useChatStream({
                         const chunk = decoder.decode(value, { stream: true });
                         if (!chunk) continue;
 
-                        // Insert empty assistant bubble only on the very first received chunk
+                        // 第一次收到流块时，在 UI 中插入 AI 气泡占位
                         if (!bubbleInserted) {
                             setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
                             bubbleInserted = true;
@@ -360,10 +341,10 @@ export function useChatStream({
 
                         if (!started && assistantText.trim().length > 0) {
                             started = true;
-                            setIsLoading(false); // 收到第一个字节时，隐藏思考动画
+                            setIsLoading(false); // 收到首字节，隐藏思考动画
                         }
 
-                        // 更新最后一条(即刚插入的Assistant)消息的内容
+                        // 高频实时刷新 AI 回复气泡
                         setMessages(prev => {
                             const copy = [...prev];
                             const lastIndex = copy.length - 1;
@@ -374,8 +355,7 @@ export function useChatStream({
                         });
                     }
 
-                    // 读取结束后，清空 Decoder 中剩余的字节 (解决中文等宽字符被截断的问题)
-                    // Flush any remaining buffered bytes from the TextDecoder
+                    // 刷新解码器缓冲区，解决可能存在的宽字节（中文）截断渲染问题
                     const remaining = decoder.decode();
                     if (remaining) {
                         assistantText += remaining;
@@ -389,16 +369,12 @@ export function useChatStream({
                         });
                     }
 
-                    break; // 流式读取成功完成，毫无异常，退出重试循环 (Success! Break retry loop)
+                    break; // 成功跑通流，退出重试循环
 
                 } catch (streamError) {
-                    // ⚠️ 处理流式中断或网络错误 (Handle Stream Interruption/Network Error)
+                    // 核心重连逻辑：如果是网络错误且未达重试上限，则记录当前已生成的文本并等待恢复
                     if (isNetworkError(streamError) && attempt < MAX_RETRIES) {
                         attempt++;
-                        console.warn(`流式读取中断，准备第 ${attempt}/${MAX_RETRIES} 次重试...`);
-
-                        // 在界面上提示用户正在重新连接
-                        // Show reconnecting hint in the assistant bubble
                         setMessages(prev => {
                             const copy = [...prev];
                             const lastIndex = copy.length - 1;
@@ -411,11 +387,9 @@ export function useChatStream({
                             return copy;
                         });
 
-                        // 等待网络恢复在线后再重试
-                        await waitForNetwork();
-                        await new Promise(r => setTimeout(r, 2000)); // 额外缓冲2秒让连接稳定
+                        await waitForNetwork(); // 等待 navigator.onLine 为 true
+                        await new Promise(r => setTimeout(r, 2000)); // 稳定缓冲
 
-                        // 恢复之前的内容，移除重连提示
                         setMessages(prev => {
                             const copy = [...prev];
                             const lastIndex = copy.length - 1;
@@ -426,30 +400,29 @@ export function useChatStream({
                         });
 
                         setIsLoading(true);
-                        continue; // 继续下一轮重试 (Continue to Next Attempt)
+                        continue;
                     }
-
-                    // 非网络错误，或达到最大重试次数，直接抛出异常结束
                     throw streamError;
                 }
             }
 
-            // 5. 收尾工作：将完整的 AI 回复保存到数据库 (Save assistant message to database)
+            // 8. 结束操作：将完整的 AI 回复持久化到数据库
             if (assistantText.trim()) {
                 fetch(`/api/conversations/${convId}/messages`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ role: 'assistant', content: assistantText }),
-                }).catch(err => console.error('保存回复失败 / Error saving assistant message:', err));
+                }).catch(err => console.error('Failed to save AI response:', err));
 
-                // 如果开启了语音功能，自动朗读 AI 的回答
-                if (isVoice && speak) {
-                    speak(assistantText);
-                }
+                // 如果开启了语音模式，调用语音合成引擎
+                if (isVoice && speak) speak(assistantText);
             }
 
-            // 为了确保左侧边栏列表标题同步更新，轮询获取最新标题 (因为标题是在服务端异步生成的)
-            // Refetch async generated conversation title (sync with sidebar)
+            /**
+             * 标题异步刷新：
+             * 由于后端在对话中通过 AI 异步生成摘要（Summarize）来得出标题，
+             * 这里分时执行多次检查，确保侧边栏的对话标题能及时同步更新。
+             */
             const refreshTitle = async () => {
                 try {
                     const convResp = await fetch(`/api/conversations/${convId}?userId=${userId}`);
@@ -461,29 +434,27 @@ export function useChatStream({
                     }
                 } catch (err) { /* ignore */ }
             };
-            // Stagger retries: backend needs ~2-5s to generate title after stream closes
-            setTimeout(refreshTitle, 1000);  // 1s — early attempt
-            setTimeout(refreshTitle, 4000);  // 4s — most titles should be ready
-            setTimeout(refreshTitle, 8000);  // 8s — catch slow AI generation
+            setTimeout(refreshTitle, 1000);
+            setTimeout(refreshTitle, 4000);
+            setTimeout(refreshTitle, 8000);
 
         } catch (error) {
-            console.error('发送消息异常 / Error sending message:', error);
+            console.error('Critical messaging error:', error);
             const errMsg = error instanceof Error ? error.message : 'Unknown error';
-            // 将报错信息追加到消息气泡末尾
             setMessages(prev => {
                 const copy = [...prev];
                 const lastIndex = copy.length - 1;
+                // 如果对话卡在一半，保留已生成的内容并提示用户重试
                 if (copy[lastIndex]?.role === 'assistant' && copy[lastIndex].content.trim()) {
                     copy[lastIndex] = {
                         ...copy[lastIndex],
-                        content: copy[lastIndex].content + `\n\n⚠️ *Connection lost. Please send your message again. (连接丢失，请重试)*`,
+                        content: copy[lastIndex].content + `\n\n⚠️ *Connection lost. Please send your message again. (连接丢失，请尝试重新发送已保存的消息)*`,
                     };
                     return copy;
                 }
                 return [...prev, { role: 'assistant', content: `Sorry, something went wrong: ${errMsg}` }];
             });
         } finally {
-            // 收尾工作：释放状态锁定
             setIsLoading(false);
             setIsStreaming(false);
         }
@@ -499,3 +470,4 @@ export function useChatStream({
         handleSendMessage
     };
 }
+

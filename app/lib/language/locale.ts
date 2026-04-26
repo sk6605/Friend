@@ -1,3 +1,7 @@
+/**
+ * 结构化指示构造器 (Build Locale Prompt)
+ * 作用：为大模型准备最适配的文化要求指令。通过直接注入语种，强制模型不偏台（不要说这跟用户设定的语言产生分裂）。
+ */
 export function buildLocalePrompt(lang: string): string {
   switch (lang) {
     case 'zh':
@@ -24,7 +28,10 @@ export function buildLocalePrompt(lang: string): string {
   }
 }
 
-/** Map language code to a human-readable name for system prompts */
+/** 
+ * UI 展示/模型强制理解映射器 (Language Code to System Friendly String)
+ * 作用：把后端的超短两个字，转换成有具体全称甚至是原版外语后缀的词，加重大模型对语境的敬畏。
+ */
 export function langCodeToName(code: string): string {
   const map: Record<string, string> = {
     en: 'English',

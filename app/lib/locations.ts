@@ -1,5 +1,9 @@
-/** Country → city/region mapping for location settings */
+/** 
+ * 静态数据字典：国家 → 城市/行政区 映射表 
+ * 作用：用作前端或后端的下拉选项、天气数据抓取的城市预挂载。减少外部 API 请求寻找城市级联关系的消耗。
+ */
 
+// 类型定义：明确一个国家包含自己的国标大写缩写、国名实称、Emoji 国旗和几个重点被包含的城市列表
 export interface Country {
   code: string;
   name: string;
@@ -7,16 +11,17 @@ export interface Country {
   cities: string[];
 }
 
+// 核心字典库：包含全球主要重点国家，数组内容写死为了零延迟提取
 export const COUNTRIES: Country[] = [
   {
     code: 'MY',
-    name: 'Malaysia',
+    name: 'Malaysia', // 第一主要服务目标国家（大马）
     flag: '🇲🇾',
     cities: ['Kuala Lumpur', 'Penang', 'Johor Bahru', 'Ipoh', 'Kota Kinabalu', 'Kuching', 'Malacca', 'Shah Alam', 'Petaling Jaya', 'Seremban'],
   },
   {
     code: 'CN',
-    name: 'China',
+    name: 'China', // 中国境内数据，方便本地化及拼音匹配
     flag: '🇨🇳',
     cities: ['Beijing', 'Shanghai', 'Guangzhou', 'Shenzhen', 'Chengdu', 'Hangzhou', 'Wuhan', 'Nanjing', 'Chongqing', 'Tianjin', 'Xiamen', 'Suzhou'],
   },
@@ -34,7 +39,7 @@ export const COUNTRIES: Country[] = [
   },
   {
     code: 'SG',
-    name: 'Singapore',
+    name: 'Singapore', // 城邦制国家直写名字本身
     flag: '🇸🇬',
     cities: ['Singapore'],
   },
@@ -125,7 +130,7 @@ export const COUNTRIES: Country[] = [
   {
     code: 'AE',
     name: 'United Arab Emirates',
-    flag: '🇦🇪',
+    flag: '🇦🇪', // 增加阿联酋以覆盖中东服务集
     cities: ['Dubai', 'Abu Dhabi', 'Sharjah'],
   },
   {

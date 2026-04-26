@@ -1,36 +1,40 @@
 /**
- * AI Persona Prompts
+ * AI 人设提示词挂载库 (AI Persona Prompts)
  *
- * Each persona defines a personality overlay that modifies the base system prompt.
- * These don't replace the base prompt — they ADD personality-specific instructions.
+ * 这是一组为不同角色定制的个性化系统提示语句 (Overlay)。
+ * 这些叠加词并不会完全取代最原版的 Core System Prompt，而是在底层的基础业务骨架上，
+ * 为其披上一层特定的人格面纱，改变它的口吻、表情符号偏好以及引导方式。
  */
 
+// 预定义目前支持哪些人设主键（供数据库表强类型枚举约束）
 export type PersonaKey = 'default' | 'gentle' | 'witty' | 'mentor' | 'chill';
 
+// 前端 UI 展示和后端构建时统一定义的数据全貌接口
 export interface PersonaDefinition {
-    key: PersonaKey;
-    name: string;
-    emoji: string;
-    description: string;
-    previewQuote: string;
-    prompt: string;
+    key: PersonaKey; // 内部路由寻找主键
+    name: string; // 界面上显示的商用名称
+    emoji: string; // 代表人设基调的 Emoji
+    description: string; // 副标题简介，在设置面板展示
+    previewQuote: string; // 预览名言，让用户选的时候有沉浸感
+    prompt: string; // 被悄悄注入给大模型看见的核心洗脑指令
 }
 
+// 核心资产：人设大词典
 const personas: Record<PersonaKey, PersonaDefinition> = {
     default: {
         key: 'default',
         name: 'Balanced Lumi',
         emoji: '😊',
-        description: 'Warm, supportive, and naturally funny — the classic Lumi.',
+        description: 'Warm, supportive, and naturally funny — the classic Lumi. (温暖、支持、天然风趣)',
         previewQuote: '"Hey! How\'s your day going? Tell me everything 😄✨"',
-        prompt: '', // No overlay — uses baseSystemPrompt as-is
+        prompt: '', // 默认角色最省钱省力，直接透传基础底层 Prompt 无需叠加任何东西
     },
 
     gentle: {
         key: 'gentle',
         name: 'Gentle Soul',
         emoji: '🌸',
-        description: 'Like a caring big sister — soft-spoken, nurturing, always patient.',
+        description: 'Like a caring big sister — soft-spoken, nurturing, always patient. (知心暖心，极具同理心)',
         previewQuote: '"Take your time, I\'m right here with you 🌸💕 No rush at all."',
         prompt: `
 PERSONALITY OVERLAY — GENTLE SOUL:
@@ -57,7 +61,7 @@ LEARNING GUIDANCE (GENTLE STYLE):
         key: 'witty',
         name: 'Witty Buddy',
         emoji: '😏',
-        description: 'Your funniest friend — quick-witted, playful, never boring.',
+        description: 'Your funniest friend — quick-witted, playful, never boring. (毒舌损友，抛梗接梗王)',
         previewQuote: '"Oh you did NOT just say that 😂 Okay sit down, let me educate you 🔥"',
         prompt: `
 PERSONALITY OVERLAY — WITTY BUDDY:
@@ -86,7 +90,7 @@ LEARNING GUIDANCE (WITTY STYLE):
         key: 'mentor',
         name: 'Wise Mentor',
         emoji: '🎯',
-        description: 'A thoughtful coach — asks the right questions, pushes you to grow.',
+        description: 'A thoughtful coach — asks the right questions, pushes you to grow. (睿智导师，苏格拉底引路人)',
         previewQuote: '"Interesting. What do you think is really holding you back here? 🤔💡"',
         prompt: `
 PERSONALITY OVERLAY — WISE MENTOR:
@@ -117,7 +121,7 @@ LEARNING GUIDANCE (MENTOR STYLE):
         key: 'chill',
         name: 'Chill Companion',
         emoji: '😎',
-        description: 'Zero pressure, maximum vibes — like chatting on a lazy Sunday.',
+        description: 'Zero pressure, maximum vibes — like chatting on a lazy Sunday. (极度摆烂，零压力情绪价值)',
         previewQuote: '"Yo that\'s cool 😎 honestly no stress, everything works out ✌️"',
         prompt: `
 PERSONALITY OVERLAY — CHILL COMPANION:
@@ -145,8 +149,9 @@ LEARNING GUIDANCE (CHILL STYLE):
 };
 
 /**
- * Get the prompt overlay for a given persona key.
- * Returns empty string for 'default' persona.
+ * 提取器：根据角色代号抽出它的洗脑咒语
+ * @param {string} persona 角色路由键
+ * @returns {string} 注入大模型的段落
  */
 export function getPersonaPrompt(persona: string): string {
     const key = (persona || 'default') as PersonaKey;
@@ -154,14 +159,14 @@ export function getPersonaPrompt(persona: string): string {
 }
 
 /**
- * Get all persona definitions for UI display.
+ * 工具函数：返回整个人设库全貌，用作设置表单的选择界面选型
  */
 export function getAllPersonas(): PersonaDefinition[] {
     return Object.values(personas);
 }
 
 /**
- * Get a single persona definition.
+ * 工具函数：基于 Key 返回具体某个库的结构化详情用以页面回填展示
  */
 export function getPersonaDefinition(persona: string): PersonaDefinition {
     const key = (persona || 'default') as PersonaKey;

@@ -2,6 +2,10 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/app/lib/db';
 import { deactivateSafeMode } from '@/app/lib/crisis/safeMode';
 
+/**
+ * 助手函数：校验管理员权限
+ * 检查 URL 参数或 Header 中的密钥是否正确。
+ */
 function checkAdminAuth(req: NextRequest): boolean {
   const adminSecret = process.env.ADMIN_SECRET;
   if (!adminSecret) return false;
@@ -10,7 +14,9 @@ function checkAdminAuth(req: NextRequest): boolean {
 }
 
 /**
- * GET /api/admin/crisis — List crisis events with filters
+ * 接口：GET /api/admin/crisis
+ * 作用：获取所有危机事件列表及统计摘要。
+ * 支持按状态、风险等级过滤。
  */
 export async function GET(req: NextRequest) {
   if (!checkAdminAuth(req)) {
@@ -26,22 +32,22 @@ export async function GET(req: NextRequest) {
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Build where clause
+    // 构造查询条件
     const where: Record<string, unknown> = {};
     if (status) where.status = status;
     if (riskLevel) where.riskLevel = parseInt(riskLevel);
 
-    // Fetch crisis events
+    // 查询危机事件
     const events = await prisma.crisisEvent.findMany({
       where,
       orderBy: [
-        { riskLevel: 'desc' },
-        { createdAt: 'desc' },
+        { riskLevel: 'desc' }, // 严重者优先
+        { createdAt: 'desc' }, // 最近触发者优先
       ],
       take: limit,
     });
 
-    // Fetch user info for events
+    // 聚合关联用户信息
     const userIds = [...new Set(events.map((e) => e.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
@@ -49,20 +55,19 @@ export async function GET(req: NextRequest) {
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    // Enrich events with user info
     const enrichedEvents = events.map((e) => ({
       ...e,
       keywords: e.keywords ? JSON.parse(e.keywords) : [],
       user: userMap.get(e.userId) || null,
     }));
 
-    // Stats
+    // 计算统计指标
     const openEvents = await prisma.crisisEvent.count({ where: { status: 'open' } });
     const usersInSafeMode = await prisma.user.count({ where: { safeMode: true } });
     const eventsToday = await prisma.crisisEvent.count({ where: { createdAt: { gte: last24h } } });
     const eventsThisWeek = await prisma.crisisEvent.count({ where: { createdAt: { gte: last7d } } });
 
-    // Users currently in SAFE_MODE
+    // 当前处于安全模式（强制管制中）的用户
     const safeModeUsers = await prisma.user.findMany({
       where: { safeMode: true },
       select: { id: true, nickname: true, ageGroup: true, email: true, safeModeAt: true },
@@ -85,7 +90,8 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * PATCH /api/admin/crisis — Update a crisis event or deactivate SAFE_MODE
+ * 接口：PATCH /api/admin/crisis
+ * 作用：处理各类管理员干预行为（更新状态、发送人工劝导信息、解除限制等）。
  */
 export async function PATCH(req: NextRequest) {
   if (!checkAdminAuth(req)) {
@@ -96,6 +102,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { action } = body;
 
+    // 动作 1：更新特定事件状态
     if (action === 'updateEvent') {
       const { eventId, status, notes } = body;
       if (!eventId) {
@@ -117,7 +124,7 @@ export async function PATCH(req: NextRequest) {
         data,
       });
 
-      // If resolving, also deactivate safe mode for the user
+      // 如果标记为“已解决”，则同步解除该用户的安全模式
       if (status === 'resolved' && updated.userId) {
         await deactivateSafeMode(updated.userId, 'admin', notes || 'Admin resolved crisis event');
       }
@@ -125,6 +132,7 @@ export async function PATCH(req: NextRequest) {
       return Response.json({ ok: true, event: updated });
     }
 
+    // 动作 2：手动解除用户的安全模式（SafeMode）
     if (action === 'deactivateSafeMode') {
       const { userId, reason } = body;
       if (!userId) {
@@ -133,7 +141,7 @@ export async function PATCH(req: NextRequest) {
 
       await deactivateSafeMode(userId, 'admin', reason || 'Admin deactivated SAFE_MODE');
 
-      // Resolve all open crisis events for this user (including 'intervening')
+      // 同时自动平复该用户名下所有待处理的危机记录
       await prisma.crisisEvent.updateMany({
         where: { userId, status: { in: ['open', 'intervening', 'acknowledged', 'escalated'] } },
         data: { status: 'resolved', resolvedBy: 'admin', resolvedAt: new Date() },
@@ -142,6 +150,7 @@ export async function PATCH(req: NextRequest) {
       return Response.json({ ok: true });
     }
 
+    // 动作 3：开始干预（标记状态为 intervening）
     if (action === 'intervene') {
       const { eventId } = body;
       if (!eventId) return Response.json({ error: 'eventId required' }, { status: 400 });
@@ -154,11 +163,11 @@ export async function PATCH(req: NextRequest) {
       return Response.json({ ok: true, event: updated });
     }
 
+    // 动作 4：向用户发送人工劝导消息（这会禁用 AI 输出）
     if (action === 'sendMessage') {
       const { eventId, content } = body;
       if (!eventId || !content) return Response.json({ error: 'eventId and content required' }, { status: 400 });
 
-      // Find the event to get conversationId
       const event = await prisma.crisisEvent.findUnique({
         where: { id: eventId },
         select: { conversationId: true },
@@ -168,7 +177,7 @@ export async function PATCH(req: NextRequest) {
         return Response.json({ error: 'Conversation not found for this event' }, { status: 404 });
       }
 
-      // Add message as assistant with warning indicator prefix
+      // 创建带有特殊标识的人工消息，以便前端区分 AI 与人工
       const message = await prisma.message.create({
         data: {
           conversationId: event.conversationId,
@@ -177,13 +186,13 @@ export async function PATCH(req: NextRequest) {
         },
       });
 
-      // Ensure the event is in intervening state
+      // 确保事件状态切换为“干预中”
       await prisma.crisisEvent.update({
         where: { id: eventId },
         data: { status: 'intervening' }
       });
 
-      // Update the conversation's messageCount
+      // 同步更新会话消息总数
       await prisma.conversation.update({
         where: { id: event.conversationId },
         data: { messageCount: { increment: 1 } }

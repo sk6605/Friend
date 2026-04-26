@@ -5,6 +5,9 @@ import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
 
+/**
+ * 助手函数：解析订阅周期时间戳
+ */
 function getSubscriptionPeriod(sub: Stripe.Subscription) {
   const item = sub.items.data[0];
   return {
@@ -13,6 +16,19 @@ function getSubscriptionPeriod(sub: Stripe.Subscription) {
   };
 }
 
+/**
+ * 接口：POST /api/subscription/webhook
+ * 作用：接收来自 Stripe 的异步事件推送。
+ * 
+ * 核心流程：
+ * 1. 签名校验 (constructEvent)：确保请求确实来自 Stripe 而非恶意伪造。
+ * 2. 事件分发：
+ *    - checkout.session.completed: 用户首次支付成功，初始化订阅记录。
+ *    - invoice.paid: 续费成功，更新订阅有效期。
+ *    - invoice.payment_failed: 扣费失败，标记为逾期。
+ *    - customer.subscription.updated: 订阅变更（如升降级或取消）。
+ *    - customer.subscription.deleted: 订阅彻底终止。
+ */
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -23,6 +39,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
+    // 核心安全屏障：校验 Webhook 签名
     event = getStripe().webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
@@ -31,6 +48,7 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
+      // 事件：支付结账成功
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const { userId, planId, interval } = session.metadata || {};
@@ -38,7 +56,7 @@ export async function POST(req: NextRequest) {
 
         const stripeSubscriptionId = session.subscription as string;
 
-        // Fetch the Stripe subscription to get period dates
+        // 获取详细订阅信息以同步有效期
         const stripeSub = await getStripe().subscriptions.retrieve(stripeSubscriptionId);
         const period = getSubscriptionPeriod(stripeSub);
 
@@ -68,6 +86,7 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      // 事件：账单支付成功 (通常用于月度重置/续费)
       case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice;
         const subRef = invoice.parent?.subscription_details?.subscription;
@@ -88,6 +107,7 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      // 事件：支付失败
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
         const failedSubRef = invoice.parent?.subscription_details?.subscription;
@@ -101,12 +121,13 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      // 事件：订阅详情更新 (如改为年度会员)
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         const newPriceId = subscription.items.data[0]?.price?.id;
         if (!newPriceId) break;
 
-        // Reverse-lookup plan by Stripe price ID
+        // 反向查询：根据 Stripe 价格 ID 确定对应的本地 Plan ID
         const plan = await prisma.plan.findFirst({
           where: {
             OR: [
@@ -141,6 +162,7 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      // 事件：订阅被删除
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
 

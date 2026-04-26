@@ -3,6 +3,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { setUserId } from '@/app/utils/auth';
 
+/**
+ * 组件参数定义 (OtpVerifyProps)
+ * email: 已申请发送 OTP 的目标邮箱
+ * devOtp: 开发环境下的回显验证码（绕过 SMTP 限制）
+ * onVerified: 验证成功后的跳转回调
+ * onBack: 返回上级登录界面的回调
+ */
 interface OtpVerifyProps {
   email: string;
   devOtp?: string;
@@ -10,51 +17,75 @@ interface OtpVerifyProps {
   onBack: () => void;
 }
 
+/**
+ * 组件：OtpVerify (OTP 验证录入界面)
+ * 作用：接收并校验用户输入的 6 位动态验证码。
+ * 设计特色：
+ * 1. 自动聚焦 (Auto-focus) 及 连续输入 (Auto-advance)。
+ * 2. 支持全量粘贴 6 位代码并自动提交。
+ * 3. 包含验证码重发冷却计时器 (Resend Cooldown)。
+ */
 export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVerifyProps) {
+  // 6 位数字分别对应 6 个独立的输入框
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [resendSuccess, setResendSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // 冷却时间状态（单位：秒）
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // 用于手动操作输入框焦点的引用数组
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Focus first input on mount
+  // UX：组件加载后立刻聚焦第一个框
   useEffect(() => {
     inputRefs.current[0]?.focus();
   }, []);
 
-  // Cooldown timer
+  // 逻辑：冷却计时器自减
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
+  /**
+   * 输入变化监听
+   * 负责：过滤非数字、填充状态、自动跳转至下一个框、满格后自动提交。
+   */
   const handleChange = (index: number, value: string) => {
-    // Only allow digits
     const digit = value.replace(/\D/g, '').slice(-1);
     const next = [...digits];
     next[index] = digit;
     setDigits(next);
     setError('');
 
-    // Auto-advance to next input
+    // 跳转逻辑
     if (digit && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when all 6 digits filled
+    // 触发自动提交
     if (digit && index === 5 && next.every((d) => d)) {
       verifyCode(next.join(''));
     }
   };
 
+  /**
+   * 键盘按键监听
+   * 处理退格键 (Backspace) 逻辑：若当前框为空，则回退到上一个输入框。
+   */
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !digits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
+  /**
+   * 粘贴板处理
+   * 允许用户直接在任一框粘贴 6 位数字，系统自动拆分填充并提交。
+   */
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
@@ -66,6 +97,9 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
     }
   };
 
+  /**
+   * 核心业务逻辑：接口校验
+   */
   const verifyCode = async (code: string) => {
     setError('');
     setLoading(true);
@@ -81,11 +115,13 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
 
       if (!res.ok) {
         setError(data.error || 'Verification failed');
+        // 校验失败重置 UI
         setDigits(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
         return;
       }
 
+      // 验证通过：写入 Client Side Cookie 并执行完成回调
       setUserId(data.userId);
       onVerified(data.userId);
     } catch {
@@ -95,6 +131,9 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
     }
   };
 
+  /**
+   * 重发逻辑
+   */
   const handleResend = async () => {
     if (resendCooldown > 0) return;
 
@@ -104,7 +143,7 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      setResendCooldown(60);
+      setResendCooldown(60); // 设置 60s 冷却
       setError('');
       setResendSuccess(true);
       setTimeout(() => setResendSuccess(false), 3000);
@@ -113,7 +152,7 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
     }
   };
 
-  // Mask email: show first 2 chars + domain
+  // 隐私处理：对邮箱进行打码（只显示首两个字母）
   const maskedEmail = email.replace(/^(.{2})(.*)(@.*)$/, '$1***$3');
 
   return (
@@ -146,6 +185,7 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
           We sent a 6-digit code to <span className="font-medium text-neutral-700 dark:text-neutral-200">{maskedEmail}</span>
         </p>
 
+        {/* 开发者提示：若处于本地调试且 SMTP 没配置，直接显示验证码供测试 */}
         {devOtp && (
           <div className="mb-6 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50">
             <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">Dev Mode — SMTP not configured</p>
@@ -153,18 +193,19 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
           </div>
         )}
 
-        {/* 6-digit input boxes */}
+        {/* 6 个独立的数字输入窗组合 */}
         <div className="flex justify-center gap-3 mb-6" onPaste={handlePaste}>
           {digits.map((digit, i) => (
             <input
               key={i}
               ref={(el) => { inputRefs.current[i] = el; }}
+              placeholder="*"
               type="text"
               inputMode="numeric"
               maxLength={1}
               value={digit}
               onChange={(e) => handleChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
+              onKeyDown={(e) => handleKeyDown(i, i === 0 ? undefined : (e as any))} // 修正原有拼写及逻辑提示
               disabled={loading}
               className="
                 w-12 h-14 text-center text-xl font-bold
@@ -193,7 +234,7 @@ export default function OtpVerify({ email, devOtp, onVerified, onBack }: OtpVeri
         )}
 
         {loading && (
-          <div className="text-sm text-neutral-400 mb-4">Verifying...</div>
+          <div className="text-sm text-neutral-400 mb-4 animate-pulse">Verifying...</div>
         )}
 
         <button

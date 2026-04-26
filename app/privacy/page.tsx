@@ -1,30 +1,47 @@
 'use client';
 
+// 引入 Next.js 提供的 Link 组件，用于客户端侧进行路由跳转而不需要全页刷新
 import Link from 'next/link';
 
+/**
+ * 组件：PrivacyPolicyPage (隐私条款落地页)
+ * 作用：展示应用的隐私政策文档。包括数据收集方式、保存期限、以及向第三方数据披露（如向 OpenAI 或 Vercel 传输数据）等法定声明。
+ * 引用层级：可以通过页脚链接 (Footer) 或直接访问路由 /privacy 来渲染此页面。
+ * 
+ * 备注：这是一个主要为静态文本的展示页面，结构上分为：顶栏返回按钮、大标题、若干带编号的说明段落（<section>）及底栏协议跳转。
+ * @returns {JSX.Element} 返回一段全屏高度的文档布局页面结构。
+ */
 export default function PrivacyPolicyPage() {
   return (
+    // 最外层容器：设置界面的最小全高度 (min-h-screen)，以及明暗主题下的渐变背景色体系
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-purple-50/30 dark:from-[#0f0b18] dark:to-[#1a1130] text-neutral-800 dark:text-neutral-200">
+      
+      {/* 居中固定宽度内容区最大宽度为 3xl (48rem)，并附带四周边距 */}
       <div className="max-w-3xl mx-auto px-6 py-12">
-        {/* Header */}
+        
+        {/* Header 区域：包含返回上一步的链接以及主标题 */}
         <div className="mb-10">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-sm text-purple-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors mb-6"
           >
+            {/* 左箭头 SVG 图标 */}
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back to App
           </Link>
+          {/* 主大字标题：使用紫红色文字渐变 (bg-clip-text) 和透明字体来实现发光渐变字效 */}
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
             Privacy Policy
           </h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">Last updated: April 1, 2026</p>
         </div>
 
-        {/* Content */}
+        {/* Content 栏目：承载主业务逻辑和政策描述的长文本容器 */}
         <div className="space-y-8 text-sm leading-relaxed">
+          
+          {/* 第一节：法律与平台基本概述 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">1. Overview</h2>
             <p>
@@ -34,6 +51,7 @@ export default function PrivacyPolicyPage() {
             </p>
           </section>
 
+          {/* 第二节：收集哪些具体的个人数据 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">2. Information We Collect</h2>
             
@@ -64,6 +82,7 @@ export default function PrivacyPolicyPage() {
             </ul>
           </section>
 
+          {/* 第三节：我们如何使用您的数据 (内部流转) */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">3. How We Use Your Information</h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -76,6 +95,7 @@ export default function PrivacyPolicyPage() {
             </ul>
           </section>
 
+          {/* 第四节：危机检测干预覆盖机制声明（重点安全相关） */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">4. Crisis Detection & Data Override</h2>
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl p-4">
@@ -92,6 +112,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
+          {/* 第五节：被调用的第三方服务合作表格列表展示 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">5. Third-Party Services</h2>
             <p className="mb-2">We use the following third-party services to process your data:</p>
@@ -135,6 +156,7 @@ export default function PrivacyPolicyPage() {
             </div>
           </section>
 
+          {/* 第六节：用户数据保留销毁政策说明 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">6. Data Retention</h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -146,6 +168,7 @@ export default function PrivacyPolicyPage() {
             </ul>
           </section>
 
+          {/* 第七节：用户的数字合规权力 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">7. Your Rights</h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -158,6 +181,7 @@ export default function PrivacyPolicyPage() {
             </ul>
           </section>
 
+          {/* 第八节：未成年人特保条例 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">8. Children&apos;s Privacy</h2>
             <p>
@@ -166,6 +190,7 @@ export default function PrivacyPolicyPage() {
             </p>
           </section>
 
+          {/* 第九节：硬件与架构上的安全机制 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">9. Security</h2>
             <p>
@@ -174,6 +199,7 @@ export default function PrivacyPolicyPage() {
             </p>
           </section>
 
+          {/* 第十节：条款更新政策 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">10. Changes to This Policy</h2>
             <p>
@@ -183,6 +209,7 @@ export default function PrivacyPolicyPage() {
             </p>
           </section>
 
+          {/* 第十一节：业务联络窗口 */}
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">11. Contact Us</h2>
             <p>
@@ -192,6 +219,7 @@ export default function PrivacyPolicyPage() {
         </div>
 
         {/* Footer */}
+        {/* 底部保留区：含版权标与跳转去服务协议 Terms 的快捷路由 */}
         <div className="mt-12 pt-6 border-t border-neutral-200 dark:border-neutral-800 flex justify-between items-center text-xs text-neutral-400">
           <span>© 2026 Friend AI. All rights reserved.</span>
           <Link href="/terms" className="text-purple-500 hover:text-purple-600 transition-colors">

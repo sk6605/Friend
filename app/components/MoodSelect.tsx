@@ -3,7 +3,9 @@ interface Props {
   language?: string;
 }
 
-// ─── Localized mood labels ───
+/**
+ * 助手词典：针对 6 个主流语言对心情标签进行本地化翻译映射
+ */
 const moodLabels: Record<string, Record<string, string>> = {
   en: { happy: 'Happy', sad: 'Sad', angry: 'Angry', excited: 'Excited', anxious: 'Anxious', tired: 'Tired' },
   zh: { happy: '开心', sad: '难过', angry: '生气', excited: '兴奋', anxious: '焦虑', tired: '疲惫' },
@@ -13,12 +15,17 @@ const moodLabels: Record<string, Record<string, string>> = {
   ms: { happy: 'Gembira', sad: 'Sedih', angry: 'Marah', excited: 'Teruja', anxious: 'Cemas', tired: 'Penat' },
 };
 
+/**
+ * 词典路由器：根据当前房间语言抽取对应的翻译，若找不到则回退到英文
+ */
 function getLabel(lang: string | undefined, key: string): string {
   const l = lang && moodLabels[lang] ? lang : 'en';
   return moodLabels[l][key] || moodLabels['en'][key];
 }
 
-// ─── Localized mood message templates ───
+/**
+ * 助手模板：拼接用户点击后的回复语（用于喂给 AI 触发后续安慰逻辑）
+ */
 const moodTemplates: Record<string, string> = {
   en: 'My mood today: ',
   zh: '我今天的心情：',
@@ -28,11 +35,15 @@ const moodTemplates: Record<string, string> = {
   ms: 'Mood saya hari ini: ',
 };
 
+/**
+ * 下行函数：生成一嘴完整的反馈文本
+ */
 export function getMoodMessage(lang: string | undefined, moodKey: string): string {
   const l = lang && moodTemplates[lang] ? lang : 'en';
   return `${moodTemplates[l]}${getLabel(lang, moodKey)}`;
 }
 
+// 静态资源：定义每种心情对应的 Emoji 以及在 Tailwind 中的华丽色彩组合
 const moods = [
   { key: 'happy', emoji: '😊', color: 'bg-amber-100/60 dark:bg-amber-900/25 border-amber-300/50 dark:border-amber-600/30 hover:bg-amber-200/70 dark:hover:bg-amber-800/30 text-amber-700 dark:text-amber-300' },
   { key: 'sad', emoji: '😔', color: 'bg-blue-100/60 dark:bg-blue-900/25 border-blue-300/50 dark:border-blue-600/30 hover:bg-blue-200/70 dark:hover:bg-blue-800/30 text-blue-700 dark:text-blue-300' },
@@ -42,6 +53,11 @@ const moods = [
   { key: 'tired', emoji: '😴', color: 'bg-slate-100/60 dark:bg-slate-800/25 border-slate-300/50 dark:border-slate-600/30 hover:bg-slate-200/70 dark:hover:bg-slate-700/30 text-slate-600 dark:text-slate-300' },
 ];
 
+/**
+ * 组件：心情选择药丸列表 (MoodSelector)
+ * 作用：在聊天页面以“快速回复”卡片的形式弹出一排心情按钮。
+ * 用户点击后，会通过 `onSelect` 回调将特定心情标记发回给 `ChatPage`。
+ */
 export default function MoodSelector({ onSelect, language }: Props) {
   return (
     <div className="flex flex-wrap gap-2 mt-3 ml-1">

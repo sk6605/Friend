@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from 'react';
 
+/**
+ * 接口属性定义 (NotificationToastProps)
+ * notifications: 包含 id, 类别, 标题, 消息内容及阅读状态的数组
+ * onDismiss: 点击关闭按钮或倒计时结束后的回调
+ * onRead: 消息展示一段时间后自动标记为已读的回调
+ */
 interface NotificationToastProps {
   notifications: {
     id: string;
@@ -14,6 +20,10 @@ interface NotificationToastProps {
   onRead: (id: string) => void;
 }
 
+/**
+ * 常量定义 (TYPE_STYLES)
+ * 针对不同类型的通知（如晨间提醒、下雨预报、午餐建议等）定义专属的 Emoji、渐变底色和主题色彩。
+ */
 const TYPE_STYLES: Record<string, {
   icon: string;
   gradient: string;
@@ -81,10 +91,16 @@ const DEFAULT_STYLE = {
   accent: 'text-neutral-600 dark:text-neutral-400',
 };
 
+/**
+ * 组件：NotificationToast (全局通知浮窗)
+ * 作用：在页面右上方弹出精美的悬浮通知，通常由 AI 后台的主动关怀、天气预警等触发。
+ * 设计：采用玻璃拟态 (Backdrop-blur) 及 渐变边框效果，支持自动标记已读和手动关闭。
+ */
 export default function NotificationToast({ notifications, onDismiss, onRead }: NotificationToastProps) {
   const [visible, setVisible] = useState<string[]>([]);
   const [exiting, setExiting] = useState<Set<string>>(new Set());
 
+  // 同步逻辑：确保列表始终按顺序渲染当前未读的所有通知
   useEffect(() => {
     const unread = notifications.filter(n => !n.read).map(n => n.id);
     setVisible(prev => {
@@ -93,7 +109,7 @@ export default function NotificationToast({ notifications, onDismiss, onRead }: 
     });
   }, [notifications]);
 
-  // Auto-mark as read after 8 seconds
+  // 自动化逻辑：展示 8 秒后，若用户无操作，则通过回调将其标记为“已读”，从而触发后续的移除逻辑
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (const id of visible) {
@@ -105,6 +121,10 @@ export default function NotificationToast({ notifications, onDismiss, onRead }: 
     return () => timers.forEach(clearTimeout);
   }, [visible, notifications, onRead]);
 
+  /**
+   * 手动移除处理
+   * 包含一个 300ms 的“淡出”动画缓冲期，然后再执行父组件的移除状态操作。
+   */
   const handleDismiss = (id: string) => {
     setExiting(prev => new Set(prev).add(id));
     setTimeout(() => {
@@ -124,7 +144,7 @@ export default function NotificationToast({ notifications, onDismiss, onRead }: 
     <div className="fixed top-4 right-4 z-[60] space-y-3 max-w-sm w-full pointer-events-none">
       {notifications
         .filter(n => visible.includes(n.id))
-        .slice(0, 3)
+        .slice(0, 3) // 同时最多只展示 3 个通知，防止占满视口
         .map(notif => {
           const style = TYPE_STYLES[notif.type] || DEFAULT_STYLE;
           const isExiting = exiting.has(notif.id);
@@ -145,18 +165,18 @@ export default function NotificationToast({ notifications, onDismiss, onRead }: 
                 }
               `}
             >
-              {/* Gradient accent bar */}
+              {/* 背景装饰：左侧单边强调条及细微的背景渐变 */}
               <div className={`absolute inset-0 bg-gradient-to-r ${style.gradient} pointer-events-none`} />
               <div className={`absolute left-0 top-0 bottom-0 w-1 ${style.iconBg}`} />
 
               <div className="relative p-4 pl-5">
                 <div className="flex items-start gap-3">
-                  {/* Icon */}
+                  {/* 类型图标 */}
                   <div className={`flex-shrink-0 w-10 h-10 rounded-xl ${style.iconBg} flex items-center justify-center text-lg shadow-sm`}>
                     {style.icon}
                   </div>
 
-                  {/* Content */}
+                  {/* 核心内容区：标题使用主题强调色，内容支持多行展示 */}
                   <div className="flex-1 min-w-0">
                     <h4 className={`text-sm font-bold ${style.accent}`}>
                       {notif.title}
@@ -166,7 +186,7 @@ export default function NotificationToast({ notifications, onDismiss, onRead }: 
                     </p>
                   </div>
 
-                  {/* Dismiss */}
+                  {/* 关闭按钮 (Dismiss) */}
                   <button
                     onClick={() => handleDismiss(notif.id)}
                     className="flex-shrink-0 p-1 rounded-lg text-neutral-300 dark:text-neutral-600 hover:text-neutral-500 dark:hover:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5 transition-all"
@@ -179,7 +199,7 @@ export default function NotificationToast({ notifications, onDismiss, onRead }: 
                   </button>
                 </div>
 
-                {/* Progress bar (auto-dismiss timer) */}
+                {/* 倒计时进度条 (仅对未读消息显示) */}
                 {!notif.read && (
                   <div className="mt-3 h-0.5 bg-neutral-200/50 dark:bg-white/5 rounded-full overflow-hidden">
                     <div
@@ -189,7 +209,7 @@ export default function NotificationToast({ notifications, onDismiss, onRead }: 
                           : notif.type === 'proactive_care' ? 'linear-gradient(to right, #a855f7, #ec4899)'
                             : notif.type === 'growth_nudge' ? 'linear-gradient(to right, #10b981, #34d399)'
                               : 'linear-gradient(to right, #6b7280, #9ca3af)',
-                        animation: 'shrink-bar 8s linear forwards',
+                        animation: 'shrink-bar 8s linear forwards', // 8 秒倒计时动画
                       }}
                     />
                   </div>
@@ -199,7 +219,7 @@ export default function NotificationToast({ notifications, onDismiss, onRead }: 
           );
         })}
 
-      {/* CSS animation for progress bar */}
+      {/* 内联动画声明：负责进度条缩减和入场滑入效果 */}
       <style>{`
         @keyframes shrink-bar {
           from { width: 100%; }

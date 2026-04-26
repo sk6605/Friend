@@ -2,11 +2,22 @@
 
 import Link from 'next/link';
 
+/**
+ * 页面：服务条款 (Terms of Service)
+ * 作用：法律合规页面，由于本应用涉及 AI 对话和心理健康探测，此页面极其重要。
+ * 
+ * 核心内容：
+ * 1. 医疗免责声明：明确 AI 不是医疗或心理治疗工具，不提供紧急救助服务。
+ * 2. AI 局限性：告知用户 AI 可能生成不准确或不适当的内容。
+ * 3. 危机干预说明：阐述平台如何处理高风险言论（安全模式、管理员介入）。
+ * 4. 用户责任：禁止滥用 AI 或发布违法违规内容。
+ * 5. 账号限制规则：详细列出多次违规后的阶梯式处罚措施。
+ */
 export default function TermsOfServicePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-purple-50/30 dark:from-[#0f0b18] dark:to-[#1a1130] text-neutral-800 dark:text-neutral-200">
       <div className="max-w-3xl mx-auto px-6 py-12">
-        {/* Header */}
+        {/* 页头导航 */}
         <div className="mb-10">
           <Link
             href="/"
@@ -23,10 +34,11 @@ export default function TermsOfServicePage() {
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">Last updated: April 1, 2026</p>
         </div>
 
-        {/* Content */}
+        {/* 条款内容区 */}
         <div className="space-y-8 text-sm leading-relaxed">
           <section>
             <h2 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100 mb-3">1. Nature of Service</h2>
+            {/* 核心免责声明：高亮显示 */}
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-4 mb-4">
               <p className="font-medium text-red-800 dark:text-red-300 mb-2">⚠️ Important Disclaimer</p>
               <p className="text-red-700 dark:text-red-400">
@@ -167,7 +179,7 @@ export default function TermsOfServicePage() {
           </section>
         </div>
 
-        {/* Footer */}
+        {/* 页脚版权信息 */}
         <div className="mt-12 pt-6 border-t border-neutral-200 dark:border-neutral-800 flex justify-between items-center text-xs text-neutral-400">
           <span>© 2026 Friend AI. All rights reserved.</span>
           <Link href="/privacy" className="text-purple-500 hover:text-purple-600 transition-colors">
@@ -178,3 +190,4 @@ export default function TermsOfServicePage() {
     </div>
   );
 }
+

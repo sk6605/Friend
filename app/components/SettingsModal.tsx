@@ -8,6 +8,13 @@ import { getAllPersonas, type PersonaKey } from '@/app/lib/ai/personaPrompts';
 
 const PERSONAS = getAllPersonas();
 
+/**
+ * SettingsModalProps - 挂载设置面板所需的必要属性
+ * @param userId - 当前登录用户的唯一标识，用于 API 请求
+ * @param profilePicture - 用户当前的头像 URL，用于初始化预览
+ * @param onClose - 关闭模态框的回调函数
+ * @param onProfileUpdate - 当用户修改资料（如头像）后的同步回调
+ */
 interface SettingsModalProps {
   userId: string;
   profilePicture?: string | null;
@@ -15,8 +22,16 @@ interface SettingsModalProps {
   onProfileUpdate?: () => void;
 }
 
+/**
+ * 设置视图状态类型 (SettingsView)
+ * 用于在单个 Modal 内切换不同的设置维度。
+ */
 type SettingsView = 'menu' | 'personalization' | 'security' | 'email' | 'language' | 'avatar' | 'location' | 'dataControl' | 'notifications' | 'persona' | 'files';
 
+/**
+ * 语言库
+ * 支持多国语言，用于 AI 在对话中自动切换翻译模式。
+ */
 const LANGUAGES = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'zh', label: '中文 (Chinese)', flag: '🇨🇳' },
@@ -26,6 +41,14 @@ const LANGUAGES = [
   { code: 'ms', label: 'Bahasa Melayu (Malay)', flag: '🇲🇾' },
 ];
 
+/**
+ * 组件：SettingsModal (设置面板)
+ * 作用：汇总了用户的所有配置项，包括账户安全、个性化偏好、数据管理等。
+ * 设计特色：
+ * 1. 采用单页面递归视图容器 (setView)，在受限空间内切换不同的深层设置页。
+ * 2. 包含功能门禁 (Gating Logic)，针对 Premium/Pro 用户开放特定设置。
+ * 3. 实时与后端 API 交互并同步全局用户信息。
+ */
 export default function SettingsModal({ userId, profilePicture, onClose, onProfileUpdate }: SettingsModalProps) {
   const [view, setView] = useState<SettingsView>('menu');
   const [newEmail, setNewEmail] = useState('');
@@ -33,39 +56,39 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Language state
+  // 语言相关状态
   const [currentLang, setCurrentLang] = useState('en');
   const [selectedLang, setSelectedLang] = useState('en');
 
-  // Avatar state
+  // 头像相关状态
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profilePicture ?? null);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  // Location & schedule state
+  // 位置与作息相关状态 (用于天气及晨间提醒)
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
   const [departureTime, setDepartureTime] = useState('');
 
-  // Data control state
+  // 数据控制（模型训练开关）
   const [dataControl, setDataControl] = useState(true);
 
-  // Persona state
+  // AI 人设相关状态
   const [currentPersona, setCurrentPersona] = useState<PersonaKey>('default');
   const [selectedPersona, setSelectedPersona] = useState<PersonaKey>('default');
   const [dataControlSaving, setDataControlSaving] = useState(false);
 
-  // Subscription state for gating
+  // 订阅权限门禁标识
   const [isPremium, setIsPremium] = useState(false);
   const [isProOrHigher, setIsProOrHigher] = useState(false);
 
-  // Email state
+  // 邮箱信息
   const [currentEmail, setCurrentEmail] = useState('');
 
-  // Derived: cities for selected country
+  // 衍生数据：根据选中国家自动筛选可用城市
   const selectedCountryData = COUNTRIES.find(c => c.code === country);
   const availableCities = selectedCountryData?.cities || [];
 
-  // Fetch current user data on mount
+  // 获取用户当前配置：初始化数据回填
   useEffect(() => {
     fetch(`/api/users/${userId}`)
       .then(res => res.ok ? res.json() : null)
@@ -84,7 +107,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
           setSelectedPersona(data.persona);
         }
 
-        // Set subscription flags
+        // 解析订阅计划名称来设定权限
         const planName = data?.subscription?.plan?.name || 'free';
         setIsPremium(planName === 'premium');
         setIsProOrHigher(['pro', 'premium'].includes(planName));
@@ -98,6 +121,10 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
     setSuccess('');
   };
 
+  /**
+   * 业务逻辑：修改邮箱
+   * 需校验格式并通过 PATCH 接口落库。
+   */
   const handleChangeEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -132,8 +159,13 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
     }
   };
 
+  /**
+   * 业务逻辑：修改 AI 回复语言
+   * 修改后通常需刷新页面以重新加载相应的 i18n 辅助配置。
+   * 这里通过 PATCH 发送 code (如 'zh', 'en') 到用户模型。
+   */
   const handleChangeLanguage = async () => {
-    if (selectedLang === currentLang) return;
+    if (selectedLang === currentLang) return; // 无变化则不操作
 
     setError('');
     setSuccess('');
@@ -154,10 +186,12 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
 
       setCurrentLang(selectedLang);
       setSuccess('Language updated! New chats will use this language.');
+      
+      // 延迟重载，给用户 1.5秒 时间看到成功提示
       setTimeout(() => {
         setView('menu');
         setSuccess('');
-        // Reload to apply language change across the app
+        // 重要：重载页面以确保全局上下文感知到语言变化
         window.location.reload();
       }, 1500);
     } catch {
@@ -167,6 +201,9 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
     }
   };
 
+  /**
+   * 业务逻辑：修改 AI 身份/人格 (Persona)
+   */
   const handleChangePersona = async () => {
     if (selectedPersona === currentPersona) return;
 
@@ -189,7 +226,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
 
       setCurrentPersona(selectedPersona);
       setSuccess('Personality updated! Your AI will now respond with this style.');
-      onProfileUpdate?.(); // Trigger user info refresh so avatar changes immediately
+      onProfileUpdate?.(); // 立即触发外部上下文刷新
       setTimeout(() => {
         setView('menu');
         setSuccess('');
@@ -201,6 +238,9 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
     }
   };
 
+  /**
+   * 业务逻辑：头像上传 (含 FormData 构建)
+   */
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -234,6 +274,9 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
     }
   };
 
+  /**
+   * 业务逻辑：删除头像
+   */
   const handleAvatarDelete = async () => {
     setError('');
     setSuccess('');
@@ -257,6 +300,9 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
     }
   };
 
+  /**
+   * 业务逻辑：更新地理位置与作息时间
+   */
   const handleSaveLocation = async () => {
     setError('');
     setSuccess('');
@@ -295,6 +341,9 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
     }
   };
 
+  /**
+   * 业务逻辑：数据隐私开关
+   */
   const handleToggleDataControl = async (newValue: boolean) => {
     setDataControlSaving(true);
     setError('');
@@ -325,21 +374,21 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+      {/* 遮罩背景：半透明 + 模糊效果 */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Modal */}
+      {/* 主面板容器：采用玻璃拟态边框与阴影 */}
       <div role="dialog" aria-modal="true" aria-label="Settings" className="relative w-full max-w-md mx-4 bg-[#faf7f2] dark:bg-[#1e1b2e] rounded-2xl shadow-2xl border border-purple-100 dark:border-purple-800/40 overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
+        {/* 顶部标题栏：包含条件渲染的“返回”按钮和退出按钮 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-purple-50 dark:border-purple-800/30">
           <div className="flex items-center gap-2">
             {view !== 'menu' && (
               <button
                 onClick={() => {
-                  // Sub-views go back to their parent category, categories go to menu
+                  // 子视图逻辑：avatar/language/persona 等返回至 personalization 分类
                   const personalizationViews = ['avatar', 'language', 'persona', 'location', 'files'];
                   const securityViews = ['email', 'dataControl', 'notifications'];
                   if (personalizationViews.includes(view)) {
@@ -384,7 +433,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
           </button>
         </div>
 
-        {/* Content */}
+        {/* 内容滚轴区：根据 view 状态分流渲染不同的配置项 */}
         <div className="p-6 overflow-y-auto flex-1">
           {/* Menu view */}
           {view === 'menu' && (
@@ -881,18 +930,20 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => handleToggleDataControl(!dataControl)}
                   disabled={dataControlSaving}
+                  {...({
+                    "role": "switch",
+                    "aria-checked": dataControl,
+                    "aria-label": "Toggle AI Improvement"
+                  } as any)}
                   className={`
                     relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent
                     transition-colors duration-200 ease-in-out focus:outline-none
                     disabled:opacity-50 disabled:cursor-not-allowed
                     ${dataControl ? 'bg-purple-600' : 'bg-neutral-300 dark:bg-neutral-600'}
                   `}
-                  type="button"
-                  role="switch"
-                  aria-checked={dataControl ? 'true' : 'false'}
-                  aria-label="Toggle data control"
                 >
                   <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${dataControl ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>

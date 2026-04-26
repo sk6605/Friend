@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 
+/**
+ * 类型定义：订阅计划数据与用户状态
+ */
 interface PlanData {
   id: string;
   name: string;
@@ -33,6 +36,7 @@ interface CurrentSub {
   stripeCustomerId?: string;
 }
 
+// 视觉配置：计划图标与配色方案
 const PLAN_ICONS: Record<string, string> = {
   free: '\u{1F31F}',
   pro: '\u{1F680}',
@@ -67,14 +71,16 @@ const PLAN_COLORS: Record<string, { border: string; bg: string; btn: string; bad
 };
 
 /**
- * Page: Subscription
- *
- * Logic:
- * 1. Fetches available plans from `/api/subscription/plans`.
- * 2. Fetches user's current status from `/api/subscription/status`.
- * 3. Displays Plan Cards with Monthly/Yearly toggle.
- * 4. Handles Subscribe/Cancel actions via API calls.
- * 5. Shows benefit cards explanation.
+ * 页面：订阅计划 (Subscription Page)
+ * 作用：展示定价方案、管理用户订阅状态，并集成 Stripe 支付流。
+ * 
+ * 逻辑流程：
+ * 1. 数据初始化：并发请求可用计划列表 (/api/subscription/plans) 和用户当前状态 (.../status)。
+ * 2. 状态反馈：处理来自 Stripe Checkout 重定向的回调参数 (success/cancelled)。
+ * 3. 订阅动作 (handleSubscribe)：
+ *    - 免费版：直接调用 subscribe 接口进行后端字段更新。
+ *    - 付费版：调用 checkout 接口获取 Stripe 会话 URL 并进行跳转。
+ * 4. 账户管理：集成 Stripe Customer Portal，允许用户管理常用卡片和账单。
  */
 export default function SubscriptionPage() {
   const [plans, setPlans] = useState<PlanData[]>([]);
@@ -86,10 +92,12 @@ export default function SubscriptionPage() {
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
 
+  // 初始化加载
   useEffect(() => {
     fetchData();
   }, []);
 
+  // 处理支付跳转回来的反馈
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true') {
@@ -101,6 +109,9 @@ export default function SubscriptionPage() {
     }
   }, []);
 
+  /**
+   * 获取订阅相关的全量数据
+   */
   async function fetchData() {
     setLoading(true);
     try {
@@ -123,21 +134,22 @@ export default function SubscriptionPage() {
     setLoading(false);
   }
 
+  /**
+   * 触发订阅流程
+   */
   async function handleSubscribe(planId: string, planName: string) {
     if (!userId) {
       setMessage({ type: 'error', text: 'Please log in first to subscribe.' });
       return;
     }
 
-    // Find the plan to check if it's free
     const plan = plans.find(p => p.id === planId);
-
     setSubscribing(planId);
     setMessage(null);
 
     try {
       if (plan && plan.price === 0) {
-        // Free plan — use direct subscribe
+        // 免费计划：直接通过 API 更新数据库状态
         const res = await fetch('/api/subscription/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -151,7 +163,7 @@ export default function SubscriptionPage() {
           setMessage({ type: 'error', text: data.error || 'Failed' });
         }
       } else {
-        // Paid plan — redirect to Stripe Checkout
+        // 付费计划：跳转至 Stripe 托管的结账页面
         const res = await fetch('/api/subscription/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -160,7 +172,7 @@ export default function SubscriptionPage() {
         const data = await res.json();
         if (res.ok && data.url) {
           window.location.assign(data.url);
-          return; // Don't clear subscribing state — page is redirecting
+          return;
         } else {
           setMessage({ type: 'error', text: data.error || 'Checkout failed' });
         }
@@ -172,6 +184,9 @@ export default function SubscriptionPage() {
     setSubscribing(null);
   }
 
+  /**
+   * 取消订阅 (仅针对非 Stripe 托管的订阅，如由于某些异常导致的手动取消)
+   */
   async function handleCancel() {
     if (!userId) return;
     setMessage(null);
@@ -190,6 +205,9 @@ export default function SubscriptionPage() {
     }
   }
 
+  /**
+   * 跳转至 Stripe 客户门户
+   */
   async function handleManageBilling() {
     if (!userId) return;
     try {
@@ -224,7 +242,7 @@ export default function SubscriptionPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* Header */}
+      {/* 顶部导航 */}
       <header className="border-b border-slate-800 px-4 sm:px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -241,7 +259,7 @@ export default function SubscriptionPage() {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
-        {/* Hero */}
+        {/* 标语区 */}
         <div className="text-center mb-10">
           <h2 className="text-3xl sm:text-4xl font-bold mb-3">
             Unlock the Full Power of <span className="text-purple-400">Lumi</span>
@@ -251,7 +269,7 @@ export default function SubscriptionPage() {
           </p>
         </div>
 
-        {/* Billing toggle */}
+        {/* 计费周期切换 (月付/年付) */}
         <div className="flex items-center justify-center gap-4 mb-10">
           <span className={`text-sm ${billingInterval === 'monthly' ? 'text-white font-medium' : 'text-slate-500'}`}>Monthly</span>
           <button
@@ -268,7 +286,7 @@ export default function SubscriptionPage() {
           </span>
         </div>
 
-        {/* Current subscription info */}
+        {/* 当前账户状态提醒 */}
         {currentSub && currentSub.subscribed && (
           <div className="mb-8 p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center">
             <p className="text-sm text-purple-300">
@@ -279,7 +297,7 @@ export default function SubscriptionPage() {
           </div>
         )}
 
-        {/* Message */}
+        {/* 交互反馈消息 */}
         {message && (
           <div className={`mb-8 p-4 rounded-xl text-center text-sm ${message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
             : 'bg-red-500/10 border border-red-500/20 text-red-300'
@@ -288,13 +306,12 @@ export default function SubscriptionPage() {
           </div>
         )}
 
-        {/* Plan cards */}
+        {/* 核心定价卡片展示组 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan) => {
             const colors = PLAN_COLORS[plan.name] || PLAN_COLORS.free;
             const isCurrentPlan = currentSub?.plan === plan.name && currentSub.subscribed;
             const price = billingInterval === 'yearly' ? plan.yearlyPrice : plan.price;
-            const savings = yearlySavings(plan.price, plan.yearlyPrice);
             const isPopular = plan.name === 'pro';
 
             return (
@@ -303,14 +320,14 @@ export default function SubscriptionPage() {
                 className={`relative rounded-2xl border-2 ${colors.border} ${colors.bg} p-6 flex flex-col ${isPopular ? 'ring-2 ring-purple-500/30' : ''
                   }`}
               >
-                {/* Popular badge */}
+                {/* 推荐标识 */}
                 {isPopular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-purple-600 text-xs font-bold text-white">
                     MOST POPULAR
                   </div>
                 )}
 
-                {/* Plan header */}
+                {/* 卡片头部 */}
                 <div className="mb-6">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-2xl">{PLAN_ICONS[plan.name] || '\u{2B50}'}</span>
@@ -319,7 +336,7 @@ export default function SubscriptionPage() {
                   <p className="text-sm text-slate-400">{plan.description}</p>
                 </div>
 
-                {/* Price */}
+                {/* 价格显示区域 */}
                 <div className="mb-6">
                   {plan.price === 0 ? (
                     <div className="flex items-baseline gap-1">
@@ -344,7 +361,7 @@ export default function SubscriptionPage() {
                   )}
                 </div>
 
-                {/* Features */}
+                {/* 功能列表 */}
                 <ul className="space-y-4 mb-8 flex-1">
                   {plan.features.map((feature, i) => {
                     const isVibe = feature.includes('✨') || feature.includes('🧠') || feature.includes('👑') || feature.includes('🎭');
@@ -359,12 +376,13 @@ export default function SubscriptionPage() {
                   })}
                 </ul>
 
-                {/* CTA Button */}
+                {/* 订阅按钮区域：根据当前状态动态切换逻辑 */}
                 {isCurrentPlan ? (
                   <div className="space-y-2">
                     <button disabled className="w-full py-3 rounded-xl bg-slate-700 text-slate-400 font-medium text-sm cursor-not-allowed">
                       Current Plan
                     </button>
+                    {/* 进入 Stripe 客户门户 */}
                     {plan.name !== 'free' && currentSub?.stripeCustomerId && (
                       <button
                         onClick={handleManageBilling}
@@ -373,6 +391,7 @@ export default function SubscriptionPage() {
                         Manage Billing
                       </button>
                     )}
+                    {/* 手动兜底取消 */}
                     {plan.name !== 'free' && !currentSub?.stripeCustomerId && (
                       <button
                         onClick={handleCancel}
@@ -400,7 +419,7 @@ export default function SubscriptionPage() {
           })}
         </div>
 
-        {/* FAQ / Benefits */}
+        {/* 付费权益详解区 */}
         <div className="mt-16 max-w-3xl mx-auto">
           <h3 className="text-2xl font-bold text-center mb-8">Why Subscribe? {'\u{1F914}'}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -437,7 +456,7 @@ export default function SubscriptionPage() {
           </div>
         </div>
 
-        {/* Footer note */}
+        {/* 底部备注 */}
         <div className="mt-12 text-center text-xs text-slate-600">
           <p>Cancel anytime. Your subscription remains active until the end of the billing period.</p>
           <p className="mt-1">Payments securely processed by Stripe.</p>
@@ -447,6 +466,9 @@ export default function SubscriptionPage() {
   );
 }
 
+/**
+ * 助手组件：权益展示卡片
+ */
 function BenefitCard({ icon, title, description }: { icon: string; title: string; description: string }) {
   return (
     <div className="bg-slate-900 rounded-xl border border-slate-800 p-5">
@@ -458,3 +480,4 @@ function BenefitCard({ icon, title, description }: { icon: string; title: string
     </div>
   );
 }
+

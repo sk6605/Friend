@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ChatBubble from '@/app/components/ChatBubble';
 import ChatInput from '@/app/components/ChatInput';
 import ChatHeader from '@/app/components/Header';
-
 
 import { useConversations } from '@/app/context/ConversationContext';
 import MoodSelector, { getMoodMessage } from '@/app/components/MoodSelect';
@@ -72,21 +71,21 @@ function getGreeting(lang: string | undefined, type: 'newChat' | 'moodCheck'): s
 }
 
 /**
- * Component: ChatPage
- * The core chat interface of the application.
+ * 组件：全功能聊天室核心 (ChatPage)
+ * 作用：这是整个应用最复杂的战舰级组件，负责接管和 AI 之间的真实时空对话。
  *
- * Features:
- * - Real-time streaming chat with OpenAI (via /api/chat).
- * - Voice input/output integration (Web Speech API).
- * - Dynamic background and UI themes.
- * - Auto-scroll and message virtualization support.
- * - Integration with Schedule, Mood, and Daily Challenges.
- * - Handles "Safe Mode" triggers and banners.
+ * 核心特性 (Features):
+ * - 基于 `useChatStream` 钩子处理打字机效果的流式输出 (Real-time streaming chat with OpenAI).
+ * - 集成语音录入与输出，通过 Web Speech API 控制麦克风和嘴巴 (Voice input/output integration).
+ * - 根据用户所处的当地时间自动切换白天/黑夜主题 (Dynamic background and UI themes).
+ * - 支持无限滚动、信息自动到底以及定位高亮搜索 (Auto-scroll and message virtualization support).
+ * - 与签到系统 (Schedule)、情绪系统 (Mood)、每日挑战 (Daily Challenges) 联锁交互.
+ * - 搭载防雷雷达，全面接管“安全模式” (Safe Mode triggers and banners).
  *
- * Props:
- * - userId: Current user's ID.
- * - conversationId: Active conversation (optional).
- * - aiName/nickname: Personalization.
+ * 传入参数 (Props):
+ * - userId: 当前使用者登入的主键.
+ * - conversationId: (可选) 如果传入，强行挂载历史聊天房.
+ * - aiName/nickname: 互相之间的尊称.
  */
 import { useChatStream } from '@/app/hooks/useChatStream';
 import { useSafeMode } from '@/app/hooks/useSafeMode';
@@ -130,7 +129,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
 
   const safeMode = currentConvId ? hasSafeMode(currentConvId) : false;
 
-  // Time-based Proactive Greeting
+  // ─── 生命周期：根据当地时间主动破冰问候 (Time-based Proactive Greeting) ───
   useEffect(() => {
     const hasGreeted = sessionStorage.getItem('daily_greeting');
     if (!hasGreeted && messages.length > 0) { // Only if chat is loaded/active
@@ -165,7 +164,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     }
   }, [messages.length, language, setMessages]);
 
-  // Auto-send when listening stops
+  // ─── 语音控制器：当监听停止时，自动将暂存的录音稿发射出去 (Auto-send when listening stops) ───
   useEffect(() => {
     if (prevListeningRef.current && !isListening && transcript.trim()) {
       handleSendMessage(transcript);
@@ -188,7 +187,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
 
 
   useEffect(() => {
-    // Fetch streak
+    // ─── 用户数据控制器：拉取用户的连续签到天数 (Fetch streak) ───
     if (userId) {
       fetch(`/api/users/${userId}/streak`)
         .then(res => res.ok ? res.json() : { streak: 0 })
@@ -197,7 +196,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     }
   }, [userId]);
 
-  // Check SAFE_MODE status on mount and Poll status during safe mode
+  // ─── 安全与风控控制器：组件挂载时校验是否有未解封的案底，如果被红牌罚下则开启 5秒 轮询监控墙 (Check SAFE_MODE status on mount and Poll status during safe mode) ───
   useEffect(() => {
     if (!userId) return;
 
@@ -238,7 +237,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     return () => { if (interval) clearInterval(interval); };
   }, [userId, currentConvId, hasSafeMode, syncSafeModeConversations, resolveSafeMode]);
 
-  // Scroll to bottom whenever messages change or stream updates
+  // ─── 视图滚动器：每当有新消息或者流在更新时强制将滚动条推向最底端 (Scroll to bottom whenever messages change or stream updates) ───
   const scrollToBottom = () => {
     setTimeout(() => {
       if (bottomRef.current) {
@@ -247,7 +246,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     }, 0);
   };
 
-  // Scroll to highlighted message after messages load, otherwise scroll to bottom
+  // ─── 搜索寻路器：如果用户通过侧边栏点击了“搜索跳转”，在加载完后必须定位到那句话并给予 2 秒的高亮闪光弹 (Scroll to highlighted message after messages load, otherwise scroll to bottom) ───
   useEffect(() => {
     if (highlightId && messages.length > 0 && messages.some(m => m.id === highlightId)) {
       // Scroll to the highlighted message
@@ -281,7 +280,11 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     return now - last > 2 * 60 * 60 * 1000;
   }
 
-  const createMoodConversation = async () => {
+  /**
+   * 业务逻辑：心情检测初始化 (Mood Check Initialization)
+   * 当用户需要进行心情检测或开启新对话时，创建一个“心情检测”主题的聊天室。
+   */
+  const createMoodConversation = useCallback(async () => {
     try {
       const res = await fetch('/api/conversations', {
         method: 'POST',
@@ -294,9 +297,12 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
 
       const newConv = await res.json();
 
+      // 同步全局对话上下文
       addConversation(newConv);
+      // 设置当前激活的房号
       setCurrentConvId(newConv.id);
 
+      // 发射初始问候语，引导用户选择心情
       setMessages([
         {
           role: 'assistant',
@@ -304,13 +310,18 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
           id: 'mood-selector',
         },
       ]);
-
     } catch (err) {
       console.error('create mood conversation error:', err);
     }
-  };
+  }, [userId, language, addConversation, setCurrentConvId, setMessages]);
 
 
+
+  /**
+   * 核心装载机：从数据库抽出房间里的对话内容并渲染
+   * @param id 房号
+   * @param checkMood 是否允许在装载时插入询问心情的“强盗”卡片（新房间允许，旧历史防勿扰不允许）
+   */
   const loadConversation = async (id: string, checkMood: boolean = false) => {
     try {
       setIsLoadingConversation(true);
@@ -549,6 +560,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
         )
       }
 
+
       {/* Notifications/Modals */}
       {
         searchNotification && (
@@ -566,5 +578,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
 
     </div >
   );
+
 }
+
 

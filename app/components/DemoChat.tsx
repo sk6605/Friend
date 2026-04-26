@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { getAllPersonas, PersonaDefinition } from '@/app/lib/ai/personaPrompts';
 
-const MAX_USER_MESSAGES = 4;
+const MAX_USER_MESSAGES = 4; // 体验版的限流阀：只能免费聊 4 句就要踢去注册
 
 type Lang = 'zh' | 'en';
 
@@ -119,7 +119,7 @@ const t = {
   },
 } as const;
 
-// ─── Language Selection Screen ─────────────────────────────────────────────────
+// ─── Phase 1: 语音选择页 (Language Selection Screen) ─────────────────────────────────────────────────
 function LanguageSelect({
   onSelect,
   onClose,
@@ -129,7 +129,7 @@ function LanguageSelect({
 }) {
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header 左上角的关闭按钮 */}
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <button
           onClick={onClose}
@@ -142,7 +142,7 @@ function LanguageSelect({
         <div className="w-8" />
       </div>
 
-      {/* Content */}
+      {/* Content 内容展示区：球体与双语选项 */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 pb-12 gap-8">
         {/* Globe icon */}
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40 flex items-center justify-center">
@@ -214,7 +214,7 @@ function LanguageSelect({
   );
 }
 
-// ─── Persona Selection Screen ─────────────────────────────────────────────────
+// ─── Phase 2: 人设选择页 (Persona Selection Screen) ─────────────────────────────────────────────────
 function PersonaSelect({
   lang,
   onSelect,
@@ -224,12 +224,12 @@ function PersonaSelect({
   onSelect: (persona: PersonaDefinition) => void;
   onBack: () => void;
 }) {
-  const personas = getAllPersonas();
-  const strings = t[lang];
+  const personas = getAllPersonas(); // 从上游引水，接住系统里的共用预设人设数据字典
+  const strings = t[lang]; // 调用多语言映射词典
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header 包含返回上一步的退路 */}
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <button
           onClick={onBack}
@@ -248,7 +248,7 @@ function PersonaSelect({
         <div className="w-8" />
       </div>
 
-      {/* Persona cards */}
+      {/* Persona cards (用滚动视窗包住动态渲染的一排人设卡片) */}
       <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-3">
         {personas.map((p) => (
           <button
@@ -293,7 +293,7 @@ function PersonaSelect({
   );
 }
 
-// ─── Limit Reached Modal ──────────────────────────────────────────────────────
+// ─── UI 钩子：当达到4句话上限时候触发的软锁模态框 (Limit Reached Modal) ──────────────────────────────────────────────────────
 function LimitModal({
   lang,
   onSignUp,
@@ -356,7 +356,7 @@ function LimitModal({
   );
 }
 
-// ─── Chat Screen ──────────────────────────────────────────────────────────────
+// ─── Phase 3: 体验打字流页面 (Chat Screen) ──────────────────────────────────────────────────────────────
 function ChatScreen({
   lang,
   persona,
@@ -372,9 +372,9 @@ function ChatScreen({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [userMsgCount, setUserMsgCount] = useState(0);
+  const [userMsgCount, setUserMsgCount] = useState(0); // 计数器：每发射一次就+1，到4时强制刹车
   const [showLimit, setShowLimit] = useState(false);
-  const [lastMessageTime, setLastMessageTime] = useState(0); // For rate-limiting / bombing prevention
+  const [lastMessageTime, setLastMessageTime] = useState(0); // For rate-limiting / bombing prevention (防抽风机连点破坏服务器)
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const greeting = strings.greetings[persona.key as keyof typeof strings.greetings]
@@ -383,27 +383,32 @@ function ChatScreen({
   const personaDisplayName = strings.personaNames[persona.key as keyof typeof strings.personaNames]
     ?? persona.name;
 
-  // Auto scroll
+  // Auto scroll (跟聊天房一样的自动滚轮)
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming]);
 
+  /**
+   * 动作处理器：接管体验聊天的独立打字机流水线
+   * 采用 Fetch API 直连 /api/chat/demo 而不使用 useChatStream (避免干扰主状态记录)
+   */
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || isStreaming) return;
 
-    // Protection: Prevent message bombing (cooldown of 3 seconds)
+    // Protection: Prevent message bombing (cooldown of 3 seconds) 3秒强制冷却时间
     const now = Date.now();
     if (now - lastMessageTime < 3000) {
       // Option to show a toast, or just ignore early send.
       return;
     }
 
-    // Protection: Character limit enforcement fallback
+    // Protection: Character limit enforcement fallback (长文防御壁垒)
     if (text.length > 250) {
       return;
     }
 
+    // 触碰红线：你该去交钱/注册了
     if (userMsgCount >= MAX_USER_MESSAGES) {
       setShowLimit(true);
       return;
@@ -445,6 +450,7 @@ function ChatScreen({
         const { done, value } = await reader.read();
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
+        // 动态覆盖最后一条空壳占位符，实现打印机效果
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = { role: 'assistant', content: accumulated };
@@ -452,6 +458,7 @@ function ChatScreen({
         });
       }
 
+      // 如果这是最后一条（满4句话了），在说完后的 0.8s 强制蹦出结账单
       if (newCount >= MAX_USER_MESSAGES) {
         setTimeout(() => setShowLimit(true), 800);
       }
@@ -480,7 +487,7 @@ function ChatScreen({
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Header */}
+      {/* Header 上线：展示当前的剩余弹药数量 */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-neutral-100 dark:border-white/5">
         <button
           onClick={onBack}
@@ -605,7 +612,11 @@ function ChatScreen({
   );
 }
 
-// ─── Main DemoChat Component ──────────────────────────────────────────────────
+/**
+ * 主装配器：体验服聊天室 (DemoChat)
+ * 作用：用做未登录游客转化漏斗的关键一环，提供受限状态下的 1 对 1 AI 体验版。
+ * 流程管控：采取 Step 有限状态机（选语言 -> 选人设风格 -> 开始试聊）。
+ */
 type Step = 'language' | 'persona' | 'chat';
 
 export default function DemoChat({ onClose, onSignUp }: DemoChatProps) {

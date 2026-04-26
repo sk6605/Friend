@@ -11,22 +11,32 @@ interface State {
   error: Error | null;
 }
 
+/**
+ * 架构组件：React 错误边界墙 (Error Boundary)
+ * 作用：拦截在这个组件之下的所有子组件（整个 React 树）发出的未经处理的运行时崩溃 (Runtime Error)。
+ * 目标：防止整个白屏死机，提供一个优雅的“刷新重试”界面，而不是展示一长串吓人的客户端代码报错。
+ * 原理：这是少数几个 React 目前要求强行要求用 class 组件而不是 hooks 编写的功能。
+ */
 export default class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
+  // 生命周期：当子组件抛出错误时立刻被调用，用来更新 fallback UI
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
+  // 生命周期：通常配合 Sentry 或 LogRocket 在这里往远程端发报错误日志
   componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // 暂时仅拦截并打印在客户端控制台，避免污染普通用户的视线
     console.error('ErrorBoundary caught:', error, info.componentStack);
   }
 
   render() {
     if (this.state.hasError) {
+      // 优雅降级全屏 UI (Fallback rendering)
       return (
         <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#13111c] px-4">
           <div className="max-w-sm text-center space-y-4">
@@ -43,6 +53,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             </p>
             <button
               onClick={() => {
+                // 提供自闭环修复按钮：清空错误状态位，强制刷新浏览器
                 this.setState({ hasError: false, error: null });
                 window.location.reload();
               }}
@@ -55,6 +66,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       );
     }
 
+    // 平安无事：直接透传子组件渲染树
     return this.props.children;
   }
 }

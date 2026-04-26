@@ -9,12 +9,20 @@ interface LoginFormProps {
   onBack?: () => void;
 }
 
+/**
+ * 组件：标准登录表单 (LoginForm)
+ * 作用：处理账户登入的第一步——验证邮箱并申请发送 OTP 动态码。
+ * 验证：采用无密码式登录 (Passwordless Login)，通过调用 /api/auth/login 接口触发。
+ */
 export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: LoginFormProps) {
 
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  /**
+   * 行为处理器：提交登录请求
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -30,10 +38,12 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
       const data = await res.json();
 
       if (!res.ok) {
+        // 后端可能返回 404（用户未注册）或 500
         setError(data.error || 'Login failed');
         return;
       }
 
+      // 阶段转换：交出接力棒，将填好的邮箱和后端给的 devOtp (如果有) 传回上级 AuthScreen 准备进入下一步验证
       onOtpSent(email, data.devOtp);
     } catch {
       setError('Something went wrong');
@@ -42,6 +52,7 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
     }
   };
 
+  // 复用的输入框样式类（带焦点发光效果）
   const inputClass = `
     w-full px-4 py-3 rounded-xl text-sm
     bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-neutral-600
@@ -62,6 +73,7 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
           p-10
         "
       >
+        {/* 返回按钮 */}
         {onBack && (
           <button
             onClick={onBack}
@@ -80,6 +92,7 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* 邮箱输入槽 */}
           <div>
             <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
               Email
@@ -94,6 +107,7 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
             />
           </div>
 
+          {/* 错误回执气泡 */}
           {error && (
             <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-xl">
               {error}
@@ -117,6 +131,7 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
           </button>
         </form>
 
+        {/* 辅助入口：如果没有注册或者想先体验一下 */}
         {onTry && (
           <div className="mt-5">
             <div className="relative flex items-center gap-3 mb-5">

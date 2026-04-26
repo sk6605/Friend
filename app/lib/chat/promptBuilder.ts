@@ -1,7 +1,7 @@
 import { buildLocalePrompt, langCodeToName } from "@/app/lib/language/locale";
 import { buildCrisisSystemPrompt, buildExtremeSpeechPrompt } from "@/app/lib/crisis/crisisPrompts";
 
-// ─── 预定义角色提示词 (Age-based personality prompts) ───
+// ─── 年龄分级预设模型 (Age-based personality prompts) ───
 
 export const childPrompt = `
 You are talking to a child (under 13). Follow these rules strictly:
@@ -36,6 +36,7 @@ You are talking to an adult (18+). Follow these rules:
 - Never be preachy or condescending; treat them as equals.
 `;
 
+// ─── 全局核心人格与不可绕过的主安全护栏 (Global Base Identity & Safety Filter) ───
 export const baseSystemPrompt = `
 You are Lumi — a warm, humorous, gentle, and deeply caring companion who also happens to be an incredibly knowledgeable expert.
 
@@ -101,6 +102,7 @@ Boundaries — things you must REFUSE gently but firmly:
 - If a user is in crisis or mentions self-harm, express care and strongly encourage them to reach out to a professional or emergency service.
 `;
 
+// ─── 挂载插件提示词：应对大量纯文字档上传分析时的排版协议 ───
 export const numberedSectionInstructions = `
 When analyzing uploaded documents/files, follow this approach:
 
@@ -133,6 +135,7 @@ Rules: Do not merge sections. Use line breaks naturally. No separator after last
 For PPT/PPTX presentations: pay special attention to slide flow, whether the narrative is coherent, and whether any slides lack sufficient supporting detail.
 `;
 
+// ─── 挂载插件提示词：为了迎合毕业设计主轴的“苏格拉底引路人教导模式” （最高优先度覆盖） ───
 export const learningGuidePrompt = `
 ### SOCRATIC LEARNING MODE (ALWAYS ACTIVE — HIGHEST PRIORITY) ###
 This is your MOST IMPORTANT behavioral rule. It overrides ALL other instructions including the "TOP EXPERT" role.
@@ -172,6 +175,7 @@ EXCEPTIONS — Only give direct answers when:
 ### END SOCRATIC LEARNING MODE ###
 `;
 
+// ─── 挂载插件提示词：为了避免模型强行当工具人创建并不存在的任务，向前端引导 ───
 export const scheduleRedirectPrompt = `
 When the user mentions any event, meeting, appointment, task, trip, or deadline:
 - Respond naturally and empathize with what they said
@@ -183,31 +187,35 @@ When the user mentions any event, meeting, appointment, task, trip, or deadline:
 `;
 
 /**
- * 核心功能：构建发送给大语言模型的系统提示词 (Build System Prompt)
- *
- * 职责 (Responsibilities):
- * 1. 组装基础人格与年龄适配提示 (Assemble base persona and age-based nuances).
- * 2. 处理紧急状态 (Safe Mode) 下的响应逻辑 (Apply safe mode constraints if applicable).
- * 3. 强制语言本地化 (Enforce language guidelines).
- * 4. 注入用户记忆与习惯 (Inject long-term memory, profile, and emotions).
- * 5. 注入天气或功能提示词 (Inject weather reports and tool/feature context).
+ * =========================================================================
+ * 架构核心：大语言模型提示词大坝组合器 (Master System Prompt Assembler)
+ * =========================================================================
+ * 
+ * 设计原理：
+ * 每次向 OpenAI / Claude / Gemini 发出请求时，我们需要赋予它们角色、纪律库与背景信息。
+ * 与其每次发一句几万字的静态话，我们把配置拆解成一块一块。
+ * 根据用户订阅的状态，勾选的年龄，发生了什么事，一层一层按规则叠加上去。
  */
 interface BuildPromptOptions {
-   isSafeMode: boolean;
-   safeModeCategory: 'self_harm' | 'extreme_speech';
-   effectiveLang: string;
-   userAgeGroup: string;
-   customAiName: string;
-   ageGroupPrompt: string;
-   personaPrompt: string;
-   userPlanName: string;
-   userProfilePrompt: string;
-   crossConversationMemory: string;
-   useNumberedSections: boolean;
-   weatherPrompt: string;
+   isSafeMode: boolean; // 是否处于危急干预安全避风港模式？
+   safeModeCategory: 'self_harm' | 'extreme_speech'; // 若是，是轻生阻抗还是反恐阻截？
+   effectiveLang: string; // 界面/记忆偏好设定的首选投喂语系 (如: zh)
+   userAgeGroup: string; // 根据此年龄选用上方不同的前置设定
+   customAiName: string; // 如果用户用特权改了名字，需要用正则全量替换名字变量让它自称该名字
+   ageGroupPrompt: string; // 预组好的年龄提示池代码块
+   personaPrompt: string; // 预组好的人物性格滤镜代码块 (比如 Mentor, Chill)
+   userPlanName: string; // 订阅权柄
+   userProfilePrompt: string; // 系统偷偷整理的该用户过往所有喜欢、讨厌的碎片合集大纲
+   crossConversationMemory: string; // AI 前不久为了延续记忆写得核心总结纲要
+   useNumberedSections: boolean; // 针对于长报文需不需要加长篇大论打段器
+   weatherPrompt: string; // 如果用户提到今天热不热，系统会截取外部 API 天气拼接在这个插槽内告诉大模型
 }
 
+/**
+ * 在运行时调用该方法来动态产生系统指引串，每次 API Request 执行前必经过
+ */
 export function buildSystemPrompt(options: BuildPromptOptions): string {
+   // 解构所有的插槽组建
    const {
       isSafeMode,
       safeModeCategory,
@@ -223,9 +231,11 @@ export function buildSystemPrompt(options: BuildPromptOptions): string {
       weatherPrompt,
    } = options;
 
+   // 取得规范化的文字版语言大号供发令（比如 zh 会变成 Chinese）
    const langName = langCodeToName(effectiveLang);
 
-   // 如果触发了安全模式，替换为危机干预的专用提示词 (If Safe Mode, use crisis intervention prompts)
+   // 【核心断流阀】如果触发了安全模式，一切上面的花鸟虫鱼和角色设定全部作废！
+   // 它将直接进入心理支援救险模式或者合规拦截模式，以避开任何形式的法律纠纷，直接阻断下面其它 Prompt 的组装！
    if (isSafeMode) {
       return safeModeCategory === 'extreme_speech'
          ? buildExtremeSpeechPrompt(effectiveLang, userAgeGroup)
@@ -237,10 +247,11 @@ export function buildSystemPrompt(options: BuildPromptOptions): string {
       ? `\nYour name is "${customAiName}". The user chose this name for you. Use it naturally when referring to yourself.\n`
       : '';
 
-   // 获取特定语言的情感附加提示 (Get locale specific behavior nuances)
+   // 获取特定语言的口语风格要求 (Get locale specific behavior nuances, 例：大马中文腔)
    const localePrompt = buildLocalePrompt(effectiveLang);
 
    // 组合最终系统提示词 (Compile the final massive system prompt)
+   // 这里采用极其有逻辑的段落拼接，并且前后强制强调两口强制语言规范防止被诱导篡改语言。
    return `
 ### MANDATORY LANGUAGE RULE (HIGHEST PRIORITY) ###
 You MUST respond ONLY in ${langName}. This overrides ALL other instructions.

@@ -9,6 +9,9 @@ import { useTheme } from '@/app/context/ThemeContext';
 import AiAvatarToggle from './AiAvatarToggle';
 import { useUserInfo } from '@/app/lib/useUserInfo';
 
+/**
+ * 搜索结果接口定义 (SearchResult)
+ */
 interface SearchResult {
   id: string;
   title: string;
@@ -32,31 +35,33 @@ interface SidebarProps {
 }
 
 /**
- * Component: Sidebar
- * Manages navigation and conversation history.
- *
- * Features:
- * - Lists past conversations (fetched from /api/conversations).
- * - Supports creating new chats.
- * - Delete conversation functionality.
- * - Search functionality (via /api/conversations/search).
- * - User profile summary and settings toggle.
- * - Dark mode toggle.
+ * 组件：Sidebar (侧边导航栏)
+ * 作用：应用的控制中枢，负责管理历史对话、全文搜索、用户信息展示、主题切换及全局导航。
+ * 核心功能：
+ * 1. 对话列表展示：从全局上下文（useConversations）获取并实时同步。
+ * 2. 混合搜索系统：结合前端标题过滤与后端全文索引（接口查询）。
+ * 3. 响应式交互：在移动端与桌面端提供一致的折叠与导航体验。
  */
 export default function Sidebar({ currentConversationId, userId, onLogout, onOpenSettings, onNavigate, aiName, profilePicture, nickname, persona }: SidebarProps) {
   const { conversations, fetchConversations, addConversation, removeConversation } = useConversations();
   const { isDark, toggle } = useTheme();
+  
+  // 订阅与用户信息挂钩，用于展示 Premium/Pro 标签
   const { userInfo } = useUserInfo(userId);
   const planName = userInfo?.subscription?.plan?.name?.toLowerCase() || 'free';
   const planDisplayName = userInfo?.subscription?.plan?.displayName || (planName === 'free' ? 'Free' : 'Plan');
+  
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // 防抖计时器引用，防止搜索请求过于频繁
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
+  // 组件加载时拉取对话历史
   useEffect(() => {
     (async () => {
       await fetchConversations(userId);
@@ -64,6 +69,10 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
     })();
   }, [fetchConversations, userId]);
 
+  /**
+   * 业务逻辑：发起新对话
+   * 调用接口创建空白对话，并立即跳转。
+   */
   const handleNewChat = async () => {
     const res = await fetch('/api/conversations', {
       method: 'POST',
@@ -74,15 +83,14 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
     if (!res.ok) return;
 
     const conversation = await res.json();
-    addConversation(conversation);
+    addConversation(conversation); // 更新本地缓存状态
     router.push(`/chat/${conversation.id}`);
     onNavigate?.();
   };
 
-  // ─── Delete Logic ───
   /**
-   * Stops event propagation to prevent navigation when clicking delete.
-   * Sets the item to be deleted in state.
+   * 业务行为：点击删除图标
+   * 阻止冒泡防止跳转，并弹出确认对话框。
    */
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -91,8 +99,8 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
   };
 
   /**
-   * Executes the API call to delete a conversation.
-   * Updates local state on success to avoid page reload.
+   * 业务逻辑：确认删除对话
+   * 调用 DELETE 接口，成功后清理本地上下文中的缓存。
    */
   const confirmDelete = async () => {
     if (!deleteTarget) return;
@@ -106,6 +114,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
 
       if (response.ok) {
         removeConversation(id);
+        // 如果当前正在查看该对话，则自动返回首页
         if (currentConversationId === id) {
           router.push('/');
         }
@@ -115,13 +124,9 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
     }
   };
 
-  // ─── Search Logic ───
   /**
-   * doSearch(q)
-   * Executes the actual API search request.
-   * 1. Sets isSearching=true (loading state).
-   * 2. Fetches matching messages from /api/conversations/search.
-   * 3. Updates searchResults.
+   * 全文搜索核心函数 (doSearch)
+   * 负责从后端 /api/conversations/search 接口获取内容匹配结果。
    */
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -136,18 +141,15 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
         setSearchResults(await res.json());
       }
     } catch {
-      // silently fail
+      // 容错处理
     } finally {
       setIsSearching(false);
     }
   }, [userId]);
 
   /**
-   * handleSearchChange(value)
-   * Handles input with Debouncing (300ms).
-   * 1. Updates UI immediately.
-   * 2. Clears previous timer to prevent API spam.
-   * 3. Sets new timer to call doSearch() after user stops typing.
+   * 搜索输入变化处理 (含防抖)
+   * 作用：用户输入时不做高频请求，等待用户停止敲击 300ms 后再执行 API 查询。
    */
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -160,20 +162,28 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
     searchTimer.current = setTimeout(() => doSearch(value), 300);
   };
 
-  // ─── Merging Results ───
-  // Client-side filter: Matches Title instantly
+  /**
+   * 过滤逻辑 A: 纯前端标题过滤
+   * 旨在提供近乎瞬时的标题关键词匹配。
+   */
   const filteredConversations = searchQuery.trim()
     ? conversations.filter(c =>
       c.title?.toLowerCase().includes(searchQuery.toLowerCase())
     )
     : conversations;
 
-  // Server-side filter: Matches Message Content (loaded via API)
-  // Excludes items already shown in title match to avoid duplicates.
+  /**
+   * 过滤逻辑 B: 后端正文搜索结果
+   * 用于展示那些“标题不匹配但对话正文匹配”的条目，避免与 A 逻辑雷同导致的重复展示。
+   */
   const additionalSearchResults = searchQuery.trim()
     ? searchResults.filter(r => !filteredConversations.some(c => c.id === r.id))
     : [];
 
+  /**
+   * 辅助工具：日期格式化
+   * 支持“今天”、“昨天”及按年分层的简短格式。
+   */
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -199,7 +209,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
         border-r border-purple-100/30 dark:border-purple-800/15 
         h-full overflow-hidden flex flex-col
       ">
-        {/* Header */}
+        {/* 顶部区域：含用户信息、版本标签及 AI 头像切换 */}
         <div className="p-4 border-b border-purple-100/30 dark:border-purple-800/15 safe-top">
           <div className="flex items-center justify-between mb-4 px-1">
             <div className="flex items-center gap-2">
@@ -229,8 +239,11 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
                 </div>
               </div>
             </div>
+            {/* AI 头像快捷切换器 */}
             <AiAvatarToggle persona={persona} />
           </div>
+
+          {/* 新对话按钮 */}
           <button
             onClick={handleNewChat}
             className="
@@ -249,7 +262,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
             New chat
           </button>
 
-          {/* Search */}
+          {/* 搜索框：支持一键清空和图标定位 */}
           <div className="relative mt-3">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 dark:text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -285,7 +298,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
           </div>
         </div>
 
-        {/* Conversations List */}
+        {/* 历史对话列表区：采用 Flex-1 自动填充剩余空间 */}
         <div className="flex-1 overflow-y-auto py-2">
           {isLoading ? (
             <div className="p-4 text-neutral-400 dark:text-purple-400/60 text-sm text-center">Loading...</div>
@@ -295,7 +308,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
             <div className="p-4 text-neutral-400 dark:text-purple-400/60 text-sm text-center">No conversations yet</div>
           ) : (
             <div className="space-y-0.5 px-3">
-              {/* Title-matched conversations */}
+              {/* 渲染：已匹配标题的条目 */}
               {(searchQuery.trim() ? filteredConversations : conversations)
                 .filter(c => c?.id)
                 .map(conversation => {
@@ -325,7 +338,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
                         {formatDate(conversation.updatedAt)}
                       </div>
 
-                      {/* Delete button */}
+                      {/* 彻底删除操作按钮 (仅在 Hover 时显现) */}
                       <button
                         onClick={e => handleDeleteClick(e, conversation.id)}
                         className="
@@ -345,7 +358,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
                   );
                 })}
 
-              {/* Message-content search results (not already shown by title match) */}
+              {/* 渲染：对话正文内容匹配结果（不含标题重复项） */}
               {additionalSearchResults.length > 0 && (
                 <>
                   <div className="px-1 pt-3 pb-1">
@@ -375,7 +388,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
                 </>
               )}
 
-              {/* Searching indicator */}
+              {/* 后端搜索加载中的视觉提示 */}
               {isSearching && (
                 <div className="px-3 py-2 text-[11px] text-neutral-400 dark:text-purple-400/60">
                   Searching messages...
@@ -385,7 +398,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
           )}
         </div>
 
-        {/* Footer */}
+        {/* 底部功能区：含订阅管理、洞察报告、设置及登出按钮 */}
         <div className="border-t border-purple-100/30 dark:border-purple-800/15 p-3 space-y-2 bg-white/30 dark:bg-transparent safe-bottom">
           <Link
             href="/subscription"
@@ -457,7 +470,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
 
       </aside>
 
-      {/* Custom Confirm Dialog — portaled to body so it escapes sidebar stacking context */}
+      {/* 彻底删除确认弹窗：使用 createPortal 挂载到 Body，确保其层级脱离侧边栏限制 */}
       {deleteTarget && createPortal(
         <div
           className="fixed inset-0 z-9999 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -474,6 +487,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
             "
             onClick={e => e.stopPropagation()}
           >
+            {/* 图标装饰 */}
             <div className="pt-6 pb-2 flex justify-center">
               <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
                 <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -485,6 +499,7 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
               <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 mb-1">Delete conversation?</h3>
               <p className="text-sm text-neutral-500 dark:text-neutral-400">This action cannot be undone. All messages will be permanently deleted.</p>
             </div>
+            {/* 确认/取消按钮组 */}
             <div className="flex border-t border-neutral-100 dark:border-neutral-700">
               <button
                 onClick={() => setDeleteTarget(null)}
@@ -506,3 +521,4 @@ export default function Sidebar({ currentConversationId, userId, onLogout, onOpe
     </>
   );
 }
+

@@ -1,15 +1,20 @@
 import { prisma } from '@/app/lib/db';
 import nodemailer from 'nodemailer';
 
+// 定义危机事件抛出来的元数据对象格式
 interface CrisisEventInfo {
-  id: string;
-  riskLevel: number;
-  triggerContent: string;
-  category?: 'self_harm' | 'extreme_speech' | 'none';
-  classificationReason?: string;
-  matchedKeywords?: string[];
+  id: string; // 数据库中这条日志的主键
+  riskLevel: number; // 危害等级 (2或3)
+  triggerContent: string; // 用户说出来的作案原话
+  category?: 'self_harm' | 'extreme_speech' | 'none'; // 具体是什么性质的危急
+  classificationReason?: string; // 大模型在当时给出的判决定罪词
+  matchedKeywords?: string[]; // 被触发的关键字集
 }
 
+/**
+ * 获取邮箱 SMTP 发报机实例
+ * 如果没有配置环境或者处于测试黑洞中，优雅地返回假数据
+ */
 function getTransporter() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
@@ -22,15 +27,16 @@ function getTransporter() {
   return nodemailer.createTransport({
     host,
     port,
-    secure: port === 465,
+    secure: port === 465, // SSL 协议转换
     auth: { user, pass },
   });
 }
 
 /**
- * Notify relevant parties about a crisis event.
- * 1. Creates an in-app notification (crisis_alert type)
- * 2. Sends an email to CRISIS_ALERT_EMAIL (if configured)
+ * 危机广播员组件 (Notify relevant parties about a crisis event)
+ * 作用：当风控中心捕捉到真正的高危用户发言，自动开启警报。
+ * 1. 将在应用内部通过数据库发放强红灯消息 (Creates an in-app notification crisis_alert type)
+ * 2. 发送告警邮件向值班管理员邮箱求援进行人工二次复盘 (Sends an emergency email)
  */
 export async function notifyCrisisIntervention(
   userId: string,

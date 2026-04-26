@@ -1,9 +1,19 @@
 import Link from 'next/link';
 
+/**
+ * 页面：404 Not Found (未找到页面)
+ * 作用：当用户访问不存在的路由时展示。
+ * 设计风格：
+ * 1. 采用“迷失太空” (Lost in Space) 主题。
+ * 2. 包含三层动态模糊光圈 (Background Orbs) 营造深度感。
+ * 3. 巨型 404 渐变文字辅以弹跳 Emoji (🛸)。
+ * 4. 提供快速跳转链接，引导用户回到首页或进入聊天系统。
+ */
 export default function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12 relative overflow-hidden">
-      {/* Animated background orbs */}
+      
+      {/* 动态背景光斑：使用 CSS 关键帧动画实现呼吸效果 */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-purple-300/20 dark:bg-purple-600/10 rounded-full blur-3xl animate-[pulse_6s_ease-in-out_infinite]" />
         <div className="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] bg-pink-200/20 dark:bg-pink-600/8 rounded-full blur-3xl animate-[pulse_8s_ease-in-out_infinite_1s]" />
@@ -11,20 +21,20 @@ export default function NotFound() {
       </div>
 
       <div className="relative z-10 text-center max-w-lg">
-        {/* Big 404 */}
+        {/* 核心视觉区：404 标识 */}
         <div className="relative mb-6">
           <span className="text-[10rem] sm:text-[12rem] font-black leading-none tracking-tighter bg-gradient-to-br from-purple-400 via-pink-400 to-amber-400 dark:from-purple-400 dark:via-pink-500 dark:to-amber-500 bg-clip-text text-transparent select-none opacity-90"
             style={{ WebkitTextStroke: '1px transparent' }}
           >
             404
           </span>
-          {/* Floating emoji */}
+          {/* 飞碟 Emoji：2.5s 快速弹跳 */}
           <span className="absolute top-8 -right-2 sm:right-4 text-4xl sm:text-5xl animate-bounce" style={{ animationDuration: '2.5s' }}>
             🛸
           </span>
         </div>
 
-        {/* Message */}
+        {/* 提示文案 */}
         <h1 className="text-2xl sm:text-3xl font-bold text-neutral-800 dark:text-white mb-3">
           Lost in Space
         </h1>
@@ -35,8 +45,9 @@ export default function NotFound() {
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
 
-        {/* Actions */}
+        {/* 行为按钮组 */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          {/* 按钮：返回首页 */}
           <Link
             href="/"
             className="
@@ -53,6 +64,8 @@ export default function NotFound() {
             </svg>
             Back to Lumi
           </Link>
+          
+          {/* 按钮：开始聊天 */}
           <Link
             href="/chat"
             className="
@@ -72,7 +85,7 @@ export default function NotFound() {
           </Link>
         </div>
 
-        {/* Subtle footer */}
+        {/* 页脚小字 */}
         <p className="mt-14 text-xs text-neutral-300 dark:text-neutral-600">
           Lumi — Your AI Companion
         </p>
@@ -80,3 +93,4 @@ export default function NotFound() {
     </div>
   );
 }
+
