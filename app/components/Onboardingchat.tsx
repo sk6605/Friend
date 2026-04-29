@@ -68,7 +68,7 @@ export default function OnboardingChat({
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [agreedToTerms] = useState(false); // 对应原代码中的状态，但在后续逻辑中会被用于校验
+  const [agreedToTerms, setAgreedToTerms] = useState(false); // 用户必须手动勾选同意条款才能完成注册
 
   // 计算顶部进度条的百分比
   const progress = (() => {
@@ -83,7 +83,7 @@ export default function OnboardingChat({
 
   // 基础校验：邮箱格式
   const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-  
+
   // 基础校验：后端内容安全分层标签
   const ageGroup = (age: number) => {
     if (age < 13) return 'child';
@@ -401,25 +401,33 @@ export default function OnboardingChat({
         {/* 分步骤渲染：AI 改名决策 + 合约勾选 */}
         {step === 'ask_ai_name' && (
           <div className="space-y-3">
-            {/* 隐私政策及服务条款入口 (Checkbox 容器) */}
-            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/60 dark:border-purple-800/20 cursor-pointer select-none">
+            {/* 隐私政策及服务条款入口 (强制勾选：不勾选无法完成注册) */}
+            <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer select-none transition-all duration-200 ${agreedToTerms
+                ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600/40'
+                : 'bg-neutral-50 dark:bg-white/5 border-neutral-200/60 dark:border-purple-800/20'
+              }`}>
               <input
                 type="checkbox"
-                checked={true} // 这里改为显示勾选状态，实际逻辑应配套 state
-                readOnly
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
                 className="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-purple-700 text-purple-600 focus:ring-purple-500 accent-purple-600"
               />
               <span className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                By clicking below, I agree to the{' '}
+                I agree to the{' '}
                 <Link href="/privacy" target="_blank" className="text-purple-500 hover:text-purple-600 underline underline-offset-2">Privacy Policy</Link>
                 {' '}and{' '}
                 <Link href="/terms" target="_blank" className="text-purple-500 hover:text-purple-600 underline underline-offset-2">Terms of Service</Link>
+                , including potential administrator intervention during crisis events.
               </span>
             </label>
 
             <button
               onClick={handleAiNameYes}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold text-sm shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2"
+              disabled={!agreedToTerms}
+              className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${agreedToTerms
+                  ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98]'
+                  : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
+                }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -428,7 +436,11 @@ export default function OnboardingChat({
             </button>
             <button
               onClick={handleAiNameNo}
-              className="w-full py-3.5 rounded-xl bg-neutral-100 dark:bg-white/5 border border-neutral-200/80 dark:border-purple-800/30 text-neutral-600 dark:text-neutral-300 font-medium text-sm hover:bg-neutral-150 dark:hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+              disabled={!agreedToTerms}
+              className={`w-full py-3.5 rounded-xl font-medium text-sm transition-all duration-200 ${agreedToTerms
+                  ? 'bg-neutral-100 dark:bg-white/5 border border-neutral-200/80 dark:border-purple-800/30 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-150 dark:hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98]'
+                  : 'bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200/40 dark:border-neutral-700/30 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
+                }`}
             >
               No, keep &quot;Lumi&quot;
             </button>
