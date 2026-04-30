@@ -26,7 +26,7 @@ interface SettingsModalProps {
  * 设置视图状态类型 (SettingsView)
  * 用于在单个 Modal 内切换不同的设置维度。
  */
-type SettingsView = 'menu' | 'personalization' | 'security' | 'email' | 'language' | 'avatar' | 'location' | 'dataControl' | 'notifications' | 'persona' | 'files';
+type SettingsView = 'menu' | 'personalization' | 'security' | 'email' | 'language' | 'avatar' | 'location' | 'dataControl' | 'notifications' | 'persona' | 'files' | 'aiName';
 
 /**
  * 语言库
@@ -77,6 +77,10 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
   const [selectedPersona, setSelectedPersona] = useState<PersonaKey>('default');
   const [dataControlSaving, setDataControlSaving] = useState(false);
 
+  // AI 名字（用户可自定义 AI 自称的名字）
+  const [currentAiName, setCurrentAiName] = useState<string>('Lumi');
+  const [draftAiName, setDraftAiName] = useState<string>('Lumi');
+
   // 订阅权限门禁标识
   const [isPremium, setIsPremium] = useState(false);
   const [isProOrHigher, setIsProOrHigher] = useState(false);
@@ -105,6 +109,10 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
         if (data?.persona) {
           setCurrentPersona(data.persona);
           setSelectedPersona(data.persona);
+        }
+        if (data?.aiName) {
+          setCurrentAiName(data.aiName);
+          setDraftAiName(data.aiName);
         }
 
         // 解析订阅计划名称来设定权限
@@ -192,6 +200,56 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
         setView('menu');
         setSuccess('');
         // 重要：重载页面以确保全局上下文感知到语言变化
+        window.location.reload();
+      }, 1500);
+    } catch {
+      setError('Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * 业务逻辑：修改 AI 自称名字 (AI Name)
+   * 用户可让 AI 用其自定义的名字（如"Sage"、"Echo"）来介绍自己。
+   * 限制：1-30 字符，去除首尾空白后不为空。
+   */
+  const handleChangeAiName = async () => {
+    const trimmed = draftAiName.trim();
+    if (!trimmed) {
+      setError('Name cannot be empty');
+      return;
+    }
+    if (trimmed.length > 30) {
+      setError('Name must be 30 characters or less');
+      return;
+    }
+    if (trimmed === currentAiName) return;
+
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aiName: trimmed }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to update AI name');
+        return;
+      }
+
+      setCurrentAiName(trimmed);
+      setSuccess(`Your AI is now called "${trimmed}".`);
+      onProfileUpdate?.();
+      // 延迟重载，让头像/header 等组件读取新名字
+      setTimeout(() => {
+        setView('menu');
+        setSuccess('');
         window.location.reload();
       }, 1500);
     } catch {
@@ -389,7 +447,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
               <button
                 onClick={() => {
                   // 子视图逻辑：avatar/language/persona 等返回至 personalization 分类
-                  const personalizationViews = ['avatar', 'language', 'persona', 'location', 'files'];
+                  const personalizationViews = ['avatar', 'aiName', 'language', 'persona', 'location', 'files'];
                   const securityViews = ['email', 'dataControl', 'notifications'];
                   if (personalizationViews.includes(view)) {
                     setView('personalization');
@@ -420,6 +478,7 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
               {view === 'notifications' && 'Notifications'}
               {view === 'persona' && 'AI Personality'}
               {view === 'files' && 'My Files'}
+              {view === 'aiName' && 'AI Name'}
             </h2>
           </div>
           <button
@@ -516,6 +575,30 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
                   <div className="font-medium">Profile Picture</div>
                   <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
                     {avatarUrl ? 'Change or remove your photo' : 'Add a profile photo'}
+                  </div>
+                </div>
+                <svg className="w-4 h-4 text-neutral-300 dark:text-neutral-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              <button
+                onClick={() => { setView('aiName'); resetForm(); setError(''); setSuccess(''); }}
+                className="
+                  w-full flex items-center gap-3 px-4 py-3.5 rounded-xl
+                  text-left text-sm text-neutral-700 dark:text-neutral-200
+                  hover:bg-purple-50 dark:hover:bg-white/5 transition-all duration-200
+                  border border-neutral-100 dark:border-neutral-700 hover:border-purple-200 dark:hover:border-purple-700/50
+                "
+              >
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <div>
+                  <div className="font-medium">AI Name</div>
+                  <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                    Currently: {currentAiName}
                   </div>
                 </div>
                 <svg className="w-4 h-4 text-neutral-300 dark:text-neutral-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -744,6 +827,60 @@ export default function SettingsModal({ userId, profilePicture, onClose, onProfi
           )}
 
           {/* Language selector view */}
+          {/* AI Name view */}
+          {view === 'aiName' && (
+            <div className="space-y-4">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Choose what to call your AI. The name will be used whenever the AI refers to itself in conversations.
+              </p>
+
+              <div>
+                <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">
+                  AI Name
+                </label>
+                <input
+                  type="text"
+                  value={draftAiName}
+                  onChange={(e) => setDraftAiName(e.target.value)}
+                  maxLength={30}
+                  placeholder="e.g. Lumi, Sage, Echo, Aria..."
+                  className="w-full px-4 py-2.5 rounded-xl text-sm bg-neutral-50 dark:bg-[#2a2440] border border-neutral-200 dark:border-neutral-600 text-neutral-800 dark:text-neutral-100 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 dark:focus:ring-purple-900/30 transition-all"
+                />
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500">
+                    1–30 characters. Examples: Lumi, Sage, Aria, Echo, Nova.
+                  </p>
+                  <span className={`text-xs ${draftAiName.length > 30 ? 'text-red-500' : 'text-neutral-400'}`}>
+                    {draftAiName.length}/30
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/40 px-4 py-3">
+                <p className="text-xs text-purple-700 dark:text-purple-300">
+                  💡 Preview: <span className="font-semibold">&ldquo;Hi! I&apos;m {draftAiName.trim() || 'Lumi'}, here to chat with you.&rdquo;</span>
+                </p>
+              </div>
+
+              {error && <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-xl">{error}</div>}
+              {success && <div className="text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2 rounded-xl">{success}</div>}
+
+              <button
+                onClick={handleChangeAiName}
+                disabled={loading || draftAiName.trim() === currentAiName || draftAiName.trim().length === 0}
+                className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md active:scale-[0.98]"
+              >
+                {loading
+                  ? 'Saving...'
+                  : draftAiName.trim() === currentAiName
+                    ? 'No changes'
+                    : draftAiName.trim().length === 0
+                      ? 'Name required'
+                      : 'Save Name'}
+              </button>
+            </div>
+          )}
+
           {view === 'language' && (
             <div className="space-y-4">
               <p className="text-sm text-neutral-500 dark:text-neutral-400">

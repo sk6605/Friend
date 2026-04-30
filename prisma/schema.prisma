@@ -19,7 +19,7 @@ model User {
   age       Int?     // nullable — user can skip during registration
   ageGroup  String   @default("adult") // child | teen | adult
   language  String   @default("en") // preferred language code
-  aiName    String   @default("Friend AI") // custom name for the AI
+  aiName    String   @default("Lumi") // custom name for the AI
   persona   String   @default("default") // default | gentle | witty | mentor | chill
   profilePicture String?  @db.Text // URL path to user's avatar image
   profile   String?  @db.Text // JSON string with AI-gathered preferences

@@ -18,7 +18,7 @@ describe('promptBuilder', () => {
         safeModeCategory: 'none' as any,
         effectiveLang: 'en',
         userAgeGroup: 'adult',
-        customAiName: 'Friend AI',
+        customAiName: 'Lumi',
         ageGroupPrompt: 'Adult behavior rules.',
         personaPrompt: 'You are gentle.',
         userPlanName: 'free',
@@ -55,14 +55,14 @@ describe('promptBuilder', () => {
         expect(prompt).toContain('You MUST respond ONLY in Chinese.');
     });
 
-    it('injects custom AI name correctly instead of Friend AI', () => {
+    it('injects custom AI name correctly instead of Lumi', () => {
         const prompt = buildSystemPrompt({
             ...baseOptions,
             customAiName: 'Buddy',
         });
         expect(prompt).toContain('Your name is "Buddy".');
         // Ensure baseSystemPrompt substitution is applied
-        expect(prompt).not.toContain('You are Friend AI');
+        expect(prompt).not.toContain('You are Lumi');
         expect(prompt).toContain('You are Buddy');
     });
 

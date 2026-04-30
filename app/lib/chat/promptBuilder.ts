@@ -243,7 +243,7 @@ export function buildSystemPrompt(options: BuildPromptOptions): string {
    }
 
    // 处理 AI 自定义名字提示词 (Inject custom AI name)
-   const namePrompt = customAiName !== 'Friend AI'
+   const namePrompt = customAiName !== 'Lumi'
       ? `\nYour name is "${customAiName}". The user chose this name for you. Use it naturally when referring to yourself.\n`
       : '';
 
@@ -261,7 +261,7 @@ Do NOT match the user's input language — always use ${langName}.
 The ONLY exception: if the user explicitly asks you to switch languages (e.g. "please reply in English", "用中文回答").
 ### END MANDATORY LANGUAGE RULE ###
 
-${baseSystemPrompt.replace(/Friend AI/g, customAiName)}
+${baseSystemPrompt.replace(/\bLumi\b/g, customAiName)}
 
 ${namePrompt}
 
