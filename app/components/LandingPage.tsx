@@ -176,10 +176,10 @@ function PersonaCard({
 // ─── Testimonial / Chat bubble ───────────────────────────────────────────────
 function ChatPreview() {
   const messages = [
-    { role: 'user' as const, text: '今天工作好累啊…', delay: 0 },
-    { role: 'ai' as const, text: '辛苦了～ 💕 今天真的很不容易呢。想跟我聊聊发生了什么吗？有时候说出来会舒服很多 ✨', delay: 600 },
-    { role: 'user' as const, text: '就是感觉压力好大', delay: 1200 },
-    { role: 'ai' as const, text: '我理解你的感受 🤗 压力大的时候要记得给自己一些空间。要不我们来做个简单的放松练习？', delay: 1800 },
+    { role: 'user' as const, text: 'I\'m so exhausted from work today…', delay: 0 },
+    { role: 'ai' as const, text: 'That sounds really tough 💕 You\'ve been working so hard. Want to tell me what happened? Sometimes talking it out helps a lot ✨', delay: 600 },
+    { role: 'user' as const, text: 'Just feeling so much pressure', delay: 1200 },
+    { role: 'ai' as const, text: 'I totally understand 🤗 When pressure builds up, remember to give yourself some space. How about we try a quick relaxation exercise together?', delay: 1800 },
   ];
 
   const [visibleCount, setVisibleCount] = useState(0);
@@ -367,8 +367,8 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
           </h1>
 
           <p className="text-lg sm:text-xl text-neutral-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-            不只是聊天，Lumi 会记住你的生活、关心你的情绪、在你需要时主动陪伴。<br />
-            <span className="text-neutral-400 text-base">More than chat — Lumi remembers your life, cares about your feelings, and reaches out when you need it.</span>
+            More than just a chatbot — Lumi remembers your life, cares about your feelings,<br />
+            <span className="text-neutral-400 text-base">and reaches out when you need it most.</span>
           </p>
 
           {/* CTA buttons */}
@@ -386,7 +386,7 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
                 flex items-center gap-2
               "
             >
-              免费开始体验
+              Start for Free
               <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
@@ -402,7 +402,7 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
                 transition-all duration-300
               "
             >
-              我已有账号 · Log in
+              I Have an Account · Log in
             </button>
           </div>
         </div>
@@ -412,8 +412,8 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
       <section className="py-16 sm:py-24 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3">像朋友一样聊天 💬</h2>
-            <p className="text-neutral-500">Chat like real friends — Lumi understands and cares</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3">Chat Like Real Friends 💬</h2>
+            <p className="text-neutral-500">Lumi understands, remembers, and truly cares about you</p>
           </div>
 
           <div
@@ -429,50 +429,50 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
       <section className="py-16 sm:py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3">为什么选择 Lumi ✨</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3">Why Choose Lumi ✨</h2>
             <p className="text-neutral-500 max-w-lg mx-auto">Features designed to make your AI companion truly personal</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             <FeatureCard
               icon="🧠"
-              title="AI 记忆"
-              description="Lumi 会记住你的喜好、生活事件和过去的对话。每次聊天都像老朋友续上话。"
+              title="AI Memory"
+              description="Lumi remembers your preferences, life events, and past conversations. Every chat picks up right where you left off."
               gradient="linear-gradient(135deg, #e8daff 0%, #f3e8ff 50%, #fae8ff 100%)"
               delay={0}
             />
             <FeatureCard
               icon="💕"
-              title="主动关心"
-              description="像真正的好朋友一样，在你需要的时候主动找你聊天、给你温暖和鼓励。"
+              title="Proactive Care"
+              description="Like a true friend, Lumi reaches out when you need it — offering warmth, encouragement, and support."
               gradient="linear-gradient(135deg, #fce7f3 0%, #fdf2f8 50%, #fff1f2 100%)"
               delay={100}
             />
             <FeatureCard
               icon="🌤️"
-              title="天气贴心提醒"
-              description="每天早上送上天气、午餐、下班提醒，还有明日预报。就像你最贴心的小秘书。"
+              title="Smart Daily Reminders"
+              description="Morning weather updates, lunch breaks, end-of-day check-ins, and tomorrow's forecast — like your own caring assistant."
               gradient="linear-gradient(135deg, #fef3c7 0%, #fff7ed 50%, #ffedd5 100%)"
               delay={200}
             />
             <FeatureCard
               icon="📊"
-              title="情绪分析"
-              description="追踪你的情绪动态、发现规律、了解触发因素。AI 帮你更好地认识自己。"
+              title="Mood Analytics"
+              description="Track your emotional patterns, discover trends, and understand triggers. AI-powered self-awareness at your fingertips."
               gradient="linear-gradient(135deg, #d1fae5 0%, #ecfdf5 50%, #f0fdf4 100%)"
               delay={300}
             />
             <FeatureCard
               icon="🛡️"
-              title="安全守护"
-              description="多层危机检测系统，在你最脆弱的时候给予专业的支持和资源引导。"
+              title="Safety Guardian"
+              description="Multi-layer crisis detection system that provides professional support and resource guidance when you need it most."
               gradient="linear-gradient(135deg, #dbeafe 0%, #eff6ff 50%, #e0f2fe 100%)"
               delay={400}
             />
             <FeatureCard
               icon="🎭"
-              title="5 种 AI 性格"
-              description="从温柔治愈到搞笑段子手，选一个最合你味的 AI 朋友。随时可以换！"
+              title="5 AI Personalities"
+              description="From gentle and nurturing to witty and playful — pick the AI friend that matches your vibe. Switch anytime!"
               gradient="linear-gradient(135deg, #fce4ec 0%, #fdf2f8 30%, #ede9fe 100%)"
               delay={500}
             />
@@ -484,43 +484,43 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
       <section className="py-16 sm:py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3">选择你的 AI 性格 🎨</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3">Choose Your AI Personality 🎨</h2>
             <p className="text-neutral-500">5 unique personas — find the one that vibes with you</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             <PersonaCard
               emoji="😊"
-              name="平衡好友 · Balanced"
-              quote="嘿！最近怎么样？都跟我说说吧 😄✨"
+              name="Balanced Friend"
+              quote="Hey! How have you been? Tell me everything 😄✨"
               color="linear-gradient(135deg, #f3e8ff 0%, #ede9fe 100%)"
               delay={0}
             />
             <PersonaCard
               emoji="🌸"
-              name="温柔伴侣 · Gentle"
-              quote="慢慢来，我一直在这里陪着你 💕 不用急。"
+              name="Gentle Companion"
+              quote="Take your time, I'm always here for you 💕 No rush at all."
               color="linear-gradient(135deg, #fce7f3 0%, #fdf2f8 100%)"
               delay={100}
             />
             <PersonaCard
               emoji="😏"
-              name="段子手 · Witty"
-              quote="你居然来了 😂 坐下，让我教你什么叫快乐 🔥"
+              name="Witty Jokester"
+              quote="Oh, you actually showed up 😂 Sit down, let me show you what happiness looks like 🔥"
               color="linear-gradient(135deg, #fef3c7 0%, #fff7ed 100%)"
               delay={200}
             />
             <PersonaCard
               emoji="🎯"
-              name="智慧导师 · Mentor"
-              quote="有意思。你觉得真正阻碍你的是什么？🤔💡"
+              name="Wise Mentor"
+              quote="Interesting. What do you think is really holding you back? 🤔💡"
               color="linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%)"
               delay={300}
             />
             <PersonaCard
               emoji="😎"
-              name="佛系搭子 · Chill"
-              quote="哟！想聊啥聊啥，不用客气 ✌️"
+              name="Chill Buddy"
+              quote="Yo! Talk about whatever you want, no pressure ✌️"
               color="linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)"
               delay={400}
             />
@@ -547,15 +547,15 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
       <section className="py-16 sm:py-24 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3">三步开始 🚀</h2>
-            <p className="text-neutral-500">Get started in 3 simple steps</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-800 mb-3">Get Started in 3 Steps 🚀</h2>
+            <p className="text-neutral-500">It only takes a minute to meet your new AI companion</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {[
-              { step: '01', title: '创建账号', desc: '用邮箱快速注册，无需密码，OTP 验证即可。', icon: '✉️', bg: 'linear-gradient(135deg, #e8daff, #f3e8ff)' },
-              { step: '02', title: '选择 AI 性格', desc: '选一个最合你的 AI 朋友风格，随时可以换。', icon: '🎭', bg: 'linear-gradient(135deg, #fce7f3, #fdf2f8)' },
-              { step: '03', title: '开始聊天', desc: '像跟好朋友一样自然地聊天，Lumi 会记住一切。', icon: '💬', bg: 'linear-gradient(135deg, #d1fae5, #ecfdf5)' },
+              { step: '01', title: 'Create Account', desc: 'Quick sign-up with email — no password needed, just OTP verification.', icon: '✉️', bg: 'linear-gradient(135deg, #e8daff, #f3e8ff)' },
+              { step: '02', title: 'Pick a Personality', desc: 'Choose an AI friend style that matches yours. Switch anytime you like.', icon: '🎭', bg: 'linear-gradient(135deg, #fce7f3, #fdf2f8)' },
+              { step: '03', title: 'Start Chatting', desc: 'Talk naturally like you would with a real friend — Lumi remembers everything.', icon: '💬', bg: 'linear-gradient(135deg, #d1fae5, #ecfdf5)' },
             ].map((item) => (
               <div
                 key={item.step}
@@ -585,12 +585,10 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
           <div className="relative z-10">
             <span className="text-5xl block mb-6">💜</span>
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              准备好认识你的 AI 好朋友了吗？
+              Ready to Meet Your AI Best Friend?
             </h2>
             <p className="text-purple-100 text-base sm:text-lg mb-8 max-w-lg mx-auto">
-              免费注册，立即和 Lumi 开始你们的第一次对话。
-              <br />
-              <span className="text-purple-200 text-sm">Sign up free and start your first conversation with Lumi.</span>
+              Sign up for free and start your first conversation with Lumi today.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -605,7 +603,7 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
                   transition-all duration-300
                 "
               >
-                立即免费注册 · Sign Up Free
+                Sign Up Free
               </button>
               <button
                 onClick={onLogin}
@@ -617,7 +615,7 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
                   transition-all duration-300
                 "
               >
-                登录 · Log in
+                Log in
               </button>
             </div>
           </div>
