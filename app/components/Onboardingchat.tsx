@@ -9,8 +9,7 @@ import Link from 'next/link';
  * ask_name: 询问姓名
  * ask_age: 询问年龄（用于内容安全过滤）
  * ask_email: 询问邮箱（主账号标识，需查重）
- * ask_interests: 兴趣采集（用于人设个性化初调）
- * ask_ai_name: 确认是否自定义 AI 尊称
+ * ask_password: 设置登录密码
  * get_ai_name: 输入自定义 AI 名字
  * creating: 后端账户创建中
  * done: 完成引导
@@ -20,8 +19,7 @@ type Step =
   | 'ask_name'
   | 'ask_age'
   | 'ask_email'
-  | 'ask_interests'
-  | 'ask_ai_name'
+  | 'ask_password'
   | 'get_ai_name'
   | 'creating'
   | 'done';
@@ -31,8 +29,8 @@ const STEPS: Step[] = [
   'ask_name',
   'ask_age',
   'ask_email',
-  'ask_interests',
-  'ask_ai_name',
+  'ask_password',
+  'get_ai_name',
 ];
 
 /**
@@ -41,11 +39,18 @@ const STEPS: Step[] = [
 const STEP_META: Record<string, { icon: string; title: string; subtitle: string }> = {
   welcome: { icon: '👋', title: 'Welcome!', subtitle: "Let's get you started" },
   ask_name: { icon: '✨', title: "What's your name?", subtitle: "We'd love to know what to call you" },
-  ask_age: { icon: '🎂', title: 'How old are you?', subtitle: 'This helps personalise the experience' },
-  ask_email: { icon: '📧', title: "What's your email?", subtitle: "You'll use this to sign in" },
-  ask_interests: { icon: '🎯', title: 'Your interests', subtitle: 'What are you passionate about?' },
-  ask_ai_name: { icon: '🤖', title: 'Name your AI', subtitle: 'Would you like to give me a custom name?' },
-  get_ai_name: { icon: '💜', title: 'Choose a name', subtitle: "What would you like to call me?" },
+  ask_age: { icon: '🎂', title: 'How old are you?', subtitle: 'This keeps the experience age-appropriate' },
+  ask_email: { icon: '📧', title: "What's your Gmail?", subtitle: "You'll use this to sign in" },
+  ask_password: { icon: '🔐', title: 'Create a password', subtitle: 'Use at least 8 characters' },
+  get_ai_name: { icon: '💜', title: 'Name your AI', subtitle: "What would you like to call me?" },
+};
+
+const INPUT_LABELS: Partial<Record<Step, string>> = {
+  ask_name: 'Your name',
+  ask_age: 'Age',
+  ask_email: 'Gmail / Email',
+  ask_password: 'Password (8+ characters)',
+  get_ai_name: 'AI name',
 };
 
 /**
@@ -73,7 +78,6 @@ export default function OnboardingChat({
   // 计算顶部进度条的百分比
   const progress = (() => {
     const idx = STEPS.indexOf(step as Step);
-    if (step === 'get_ai_name') return 100;
     if (step === 'creating' || step === 'done') return 100;
     if (idx < 0) return 100;
     return Math.round(((idx) / STEPS.length) * 100);
@@ -124,11 +128,11 @@ export default function OnboardingChat({
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       // 容错：如果用户已经由于某种原因注册过了，直接通过
       if (msg.includes('already registered')) {
-        setStep('done');
-        setTimeout(() => onFinish(), 1500);
+        setError(msg);
+        setStep('ask_email');
       } else {
         setError(msg);
-        setStep('ask_interests');
+        setStep('get_ai_name');
       }
     }
   };
@@ -157,7 +161,7 @@ export default function OnboardingChat({
 
       case 'ask_age': {
         const age = Number(val);
-        if (isNaN(age) || age < 1 || age > 150) {
+        if (!Number.isInteger(age) || age < 1 || age > 150) {
           setError('Please enter a valid age');
           return;
         }
@@ -188,7 +192,7 @@ export default function OnboardingChat({
           d.email = val;
           setData(d);
           setInputValue('');
-          setStep('ask_interests');
+          setStep('ask_password');
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Could not verify email';
           setError(msg);
@@ -197,45 +201,23 @@ export default function OnboardingChat({
         }
         break;
 
-      case 'ask_interests':
-        if (!val) { setError('Tell us something you enjoy!'); return; }
-        d.interests = val;
+      case 'ask_password':
+        if (val.length < 8) { setError('Password must be at least 8 characters'); return; }
+        d.password = val;
         setData(d);
         setInputValue('');
-        setStep('ask_ai_name');
+        setStep('get_ai_name');
         break;
 
       case 'get_ai_name':
         if (!val) { setError('Please enter a name'); return; }
+        if (!agreedToTerms) { setError('Please agree to the Privacy Policy and Terms of Service'); return; }
         d.aiName = val;
         setData(d);
         setInputValue('');
         finishAccount(d);
         break;
     }
-  };
-
-  /**
-   * 跳过逻辑 (针对年龄)
-   */
-  const handleSkipAge = () => {
-    const d = { ...data, age: null, ageGroup: 'adult' };
-    setData(d);
-    setError('');
-    setInputValue('');
-    setStep('ask_email');
-  };
-
-  const handleAiNameYes = () => {
-    setError('');
-    setInputValue('');
-    setStep('get_ai_name');
-  };
-
-  const handleAiNameNo = () => {
-    const d = { ...data, aiName: 'Lumi' };
-    setData(d);
-    finishAccount(d);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -340,20 +322,26 @@ export default function OnboardingChat({
         )}
 
         {/* 分步骤渲染：通用的文本输入框流程 */}
-        {['ask_name', 'ask_age', 'ask_email', 'ask_interests', 'get_ai_name'].includes(step) && (
+        {['ask_name', 'ask_age', 'ask_email', 'ask_password', 'get_ai_name'].includes(step) && (
           <div className="space-y-3">
             <div>
+              <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
+                {INPUT_LABELS[step]}
+              </label>
               <input
-                type={step === 'ask_email' ? 'email' : 'text'}
+                type={step === 'ask_email' ? 'email' : step === 'ask_password' ? 'password' : step === 'ask_age' ? 'number' : 'text'}
                 value={inputValue}
                 onChange={e => { setInputValue(e.target.value); setError(''); }}
                 onKeyDown={handleKeyDown}
+                minLength={step === 'ask_password' ? 8 : undefined}
+                min={step === 'ask_age' ? 1 : undefined}
+                max={step === 'ask_age' ? 150 : undefined}
                 placeholder={
                   step === 'ask_name' ? 'Enter your name...' :
                     step === 'ask_age' ? 'e.g. 25' :
                       step === 'ask_email' ? 'you@example.com' :
-                        step === 'ask_interests' ? 'e.g. music, tech, cooking...' :
-                          step === 'get_ai_name' ? 'e.g. Luna, Buddy, Nova...' : ''
+                        step === 'ask_password' ? 'At least 8 characters' :
+                          step === 'get_ai_name' ? 'e.g. Lumi, Luna, Nova...' : ''
                 }
                 autoFocus
                 className="w-full px-4 py-3.5 rounded-xl bg-neutral-50 dark:bg-white/5 border border-neutral-200/80 dark:border-purple-800/30 text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-400 transition-all"
@@ -368,27 +356,38 @@ export default function OnboardingChat({
               )}
             </div>
 
+            {step === 'get_ai_name' && (
+              <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer select-none transition-all duration-200 ${agreedToTerms
+                ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600/40'
+                : 'bg-neutral-50 dark:bg-white/5 border-neutral-200/60 dark:border-purple-800/20'
+                }`}>
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => { setAgreedToTerms(e.target.checked); setError(''); }}
+                  className="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-purple-700 text-purple-600 focus:ring-purple-500 accent-purple-600"
+                />
+                <span className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  I agree to the{' '}
+                  <Link href="/privacy" target="_blank" className="text-purple-500 hover:text-purple-600 underline underline-offset-2">Privacy Policy</Link>
+                  {' '}and{' '}
+                  <Link href="/terms" target="_blank" className="text-purple-500 hover:text-purple-600 underline underline-offset-2">Terms of Service</Link>
+                  , including potential administrator intervention during crisis events.
+                </span>
+              </label>
+            )}
+
             <button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || (step === 'get_ai_name' && !agreedToTerms)}
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white font-semibold text-sm shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              {loading ? 'Checking...' : 'Continue'}
+              {loading ? 'Checking...' : step === 'get_ai_name' ? 'Create account' : 'Continue'}
             </button>
-
-            {step === 'ask_age' && (
-              <button
-                onClick={handleSkipAge}
-                className="w-full py-2 text-sm text-neutral-400 dark:text-neutral-500 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
-                title="Skip this step"
-              >
-                Skip this step
-              </button>
-            )}
 
             {step === 'get_ai_name' && (
               <button
-                onClick={() => { setStep('ask_ai_name'); setInputValue(''); setError(''); }}
+                onClick={() => { setStep('ask_password'); setInputValue(String(data.password || '')); setError(''); }}
                 className="w-full py-2 text-sm text-neutral-400 dark:text-neutral-500 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
                 title="Go back"
               >
@@ -397,61 +396,12 @@ export default function OnboardingChat({
             )}
           </div>
         )}
-
-        {/* 分步骤渲染：AI 改名决策 + 合约勾选 */}
-        {step === 'ask_ai_name' && (
-          <div className="space-y-3">
-            {/* 隐私政策及服务条款入口 (强制勾选：不勾选无法完成注册) */}
-            <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer select-none transition-all duration-200 ${agreedToTerms
-                ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-600/40'
-                : 'bg-neutral-50 dark:bg-white/5 border-neutral-200/60 dark:border-purple-800/20'
-              }`}>
-              <input
-                type="checkbox"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-neutral-300 dark:border-purple-700 text-purple-600 focus:ring-purple-500 accent-purple-600"
-              />
-              <span className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                I agree to the{' '}
-                <Link href="/privacy" target="_blank" className="text-purple-500 hover:text-purple-600 underline underline-offset-2">Privacy Policy</Link>
-                {' '}and{' '}
-                <Link href="/terms" target="_blank" className="text-purple-500 hover:text-purple-600 underline underline-offset-2">Terms of Service</Link>
-                , including potential administrator intervention during crisis events.
-              </span>
-            </label>
-
-            <button
-              onClick={handleAiNameYes}
-              disabled={!agreedToTerms}
-              className={`w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${agreedToTerms
-                  ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:scale-[1.02] active:scale-[0.98]'
-                  : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
-                }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-              Yes, let me name you!
-            </button>
-            <button
-              onClick={handleAiNameNo}
-              disabled={!agreedToTerms}
-              className={`w-full py-3.5 rounded-xl font-medium text-sm transition-all duration-200 ${agreedToTerms
-                  ? 'bg-neutral-100 dark:bg-white/5 border border-neutral-200/80 dark:border-purple-800/30 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-150 dark:hover:bg-white/10 hover:scale-[1.02] active:scale-[0.98]'
-                  : 'bg-neutral-100 dark:bg-neutral-800/50 border border-neutral-200/40 dark:border-neutral-700/30 text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
-                }`}
-            >
-              No, keep &quot;Lumi&quot;
-            </button>
-          </div>
-        )}
       </div>
 
       {/* 底部装饰：步进圆点标识器 */}
       <div className="flex items-center justify-center gap-1.5 pb-6">
         {STEPS.map((s, i) => {
-          const currentIdx = step === 'get_ai_name' ? STEPS.length : STEPS.indexOf(step as Step);
+          const currentIdx = STEPS.indexOf(step as Step);
           return (
             <div
               key={s}

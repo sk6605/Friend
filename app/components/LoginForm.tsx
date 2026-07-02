@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 interface LoginFormProps {
-  onOtpSent: (email: string, devOtp?: string) => void;
+  onLogin: (userId: string) => void;
   onRegister?: () => void;
   onTry?: () => void;
   onBack?: () => void;
@@ -11,12 +11,12 @@ interface LoginFormProps {
 
 /**
  * 组件：标准登录表单 (LoginForm)
- * 作用：处理账户登入的第一步——验证邮箱并申请发送 OTP 动态码。
- * 验证：采用无密码式登录 (Passwordless Login)，通过调用 /api/auth/login 接口触发。
+ * 作用：处理账户登入，使用邮箱和密码调用 /api/auth/login。
  */
-export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: LoginFormProps) {
+export default function LoginForm({ onLogin, onRegister, onTry, onBack }: LoginFormProps) {
 
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -32,19 +32,17 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        // 后端可能返回 404（用户未注册）或 500
         setError(data.error || 'Login failed');
         return;
       }
 
-      // 阶段转换：交出接力棒，将填好的邮箱和后端给的 devOtp (如果有) 传回上级 AuthScreen 准备进入下一步验证
-      onOtpSent(email, data.devOtp);
+      onLogin(data.userId);
     } catch {
       setError('Something went wrong');
     } finally {
@@ -88,20 +86,35 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
 
         <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-100 mb-2">Welcome back</h2>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-8">
-          Enter your email to receive a login code
+          Sign in with your Gmail and password
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* 邮箱输入槽 */}
           <div>
             <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
-              Email
+              Gmail / Email
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              required
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Your password"
+              minLength={8}
               required
               className={inputClass}
             />
@@ -127,7 +140,7 @@ export default function LoginForm({ onOtpSent, onRegister, onTry, onBack }: Logi
             "
             style={{ backgroundColor: '#7C3AED' }}
           >
-            {loading ? 'Sending code...' : 'Continue'}
+            {loading ? 'Signing in...' : 'Log in'}
           </button>
         </form>
 

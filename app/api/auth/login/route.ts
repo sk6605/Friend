@@ -1,69 +1,48 @@
 import { prisma } from '@/app/lib/db';
-import { sendOtpEmail, isSmtpConfigured } from '@/app/lib/email';
+import bcrypt from 'bcrypt';
 
 /**
  * POST /api/auth/login
- * Handles user login for existing accounts via passwordless OTP.
+ * Handles user login for existing accounts via email and password.
  *
  * Logic:
- * 1. Validates that the email exists in the database.
- * 2. Generates a 6-digit OTP.
- * 3. Stores the OTP in the database (Prisma `Otp` model).
- * 4. Sends the OTP via email using Nodemailer.
+ * 1. Normalizes and validates email/password input.
+ * 2. Loads the matching user by email.
+ * 3. Verifies the submitted password against the stored bcrypt hash.
  *
- * Services: Prisma (DB), Nodemailer (Email)
+ * Services: Prisma (DB), bcrypt
  */
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const { email, password } = await req.json();
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const submittedPassword = typeof password === 'string' ? password : '';
 
-    if (!email) {
+    if (!normalizedEmail || !submittedPassword) {
       return Response.json(
-        { error: 'Email is required' },
+        { error: 'Email and password are required' },
         { status: 400 }
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
-    if (!user) {
+    if (!user?.password) {
       return Response.json(
-        { error: 'No account found with this email' },
-        { status: 404 }
+        { error: 'Invalid email or password' },
+        { status: 401 }
       );
     }
 
-    // Generate 6-digit OTP (cryptographically secure)
-    const { randomInt } = await import('crypto');
-    const code = randomInt(100000, 1000000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-    // Invalidate old OTPs for this email
-    await prisma.otp.updateMany({
-      where: { email, used: false },
-      data: { used: true },
-    });
-
-    // Create new OTP
-    await prisma.otp.create({
-      data: { email, code, expiresAt },
-    });
-
-    // Send OTP email (or log to console in dev)
-    await sendOtpEmail(email, code);
-
-    const response: Record<string, unknown> = {
-      ok: true,
-      message: 'OTP sent to your email',
-      userId: user.id,
-    };
-
-    // Dev mode: include OTP in response when SMTP is not configured
-    if (!isSmtpConfigured()) {
-      response.devOtp = code;
+    const passwordMatches = await bcrypt.compare(submittedPassword, user.password);
+    if (!passwordMatches) {
+      return Response.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      );
     }
 
-    return Response.json(response);
+    return Response.json({ ok: true, userId: user.id });
   } catch (error) {
     console.error('Login error:', error);
     return Response.json(

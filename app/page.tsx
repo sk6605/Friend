@@ -8,9 +8,7 @@ import SettingsModal from "./components/SettingsModal";
 import LandingPage from "./components/LandingPage";
 import { getUserId, setUserId, logout } from "./utils/auth";
 import { useUserInfo } from "./lib/useUserInfo";
-import { useNotifications } from "./hooks/useNotifications";
 import { usePushNotifications } from "./hooks/usePushNotifications";
-import NotificationToast from "./components/NotificationToast";
 
 /**
  * 页面：根入口 / 首页 (Home)
@@ -20,7 +18,7 @@ import NotificationToast from "./components/NotificationToast";
  * 1. 鉴权检查：通过本地 utils/auth 检查是否存在已存储的 userId。
  * 2. 未登录流：默认展示 LandingPage (落地页)。用户点击开始或登录时，展示 AuthScreen。
  * 3. 已登录流：渲染主应用架构，包含 Sidebar (侧边栏) 和 ChatPage (聊天主视窗)。
- * 4. 全局服务挂载：在此处初始化通知钩子 (useNotifications) 和推送服务 (usePushNotifications)。
+ * 4. 全局服务挂载：在此处初始化浏览器推送服务 (usePushNotifications)。
  */
 export default function Home() {
   const [userId, setUid] = useState<string | null>(null);
@@ -30,9 +28,8 @@ export default function Home() {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   
-  // 核心数据模型：拉取用户信息、通知列表
+  // 核心数据模型：拉取用户信息
   const { userInfo, refetch: refetchUser } = useUserInfo(userId);
-  const { notifications, dismissNotification, markRead } = useNotifications(userId);
   
   // 自动初始化浏览器推送通知
   usePushNotifications(userId || '');
@@ -136,13 +133,6 @@ export default function Home() {
         />
       )}
 
-      {/* 全局通知悬浮窗：处理雨具提醒、心情统计等系统消息 */}
-      <NotificationToast
-        notifications={notifications}
-        onDismiss={dismissNotification}
-        onRead={markRead}
-      />
     </div>
   );
 }
-

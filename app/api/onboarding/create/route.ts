@@ -1,23 +1,45 @@
 import { prisma } from "@/app/lib/db";
+import bcrypt from "bcrypt";
 
 /**
  * POST /api/onboarding/create
- * Creates a new user account after successful OTP verification.
+ * Creates a new user account with email/password login.
  *
  * Logic:
- * 1. Validates unique email.
- * 2. Creates User record with profile data (Prisma).
- * 3. Initializes default settings (Language, Age Group).
+ * 1. Validates the required account fields.
+ * 2. Stores a bcrypt hash of the submitted password.
+ * 3. Initializes default settings.
  * 4. Creates initial "Hi" conversation.
  *
- * Services: Prisma
+ * Services: Prisma, bcrypt
  */
 export async function POST(req: Request) {
   try {
     const data = await req.json();
+    const email = typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+    const password = typeof data.password === 'string' ? data.password.trim() : '';
+    const username = typeof data.username === 'string' ? data.username.trim() : '';
+    const aiName = typeof data.aiName === 'string' && data.aiName.trim()
+      ? data.aiName.trim()
+      : 'Lumi';
+
+    if (!username) {
+      return Response.json({ error: 'Name is required' }, { status: 400 });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return Response.json({ error: 'Valid email is required' }, { status: 400 });
+    }
+
+    if (password.length < 8) {
+      return Response.json(
+        { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      );
+    }
 
     // Check if email already exists
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return Response.json(
         { error: 'This email is already registered. Please log in instead.' },
@@ -25,20 +47,21 @@ export async function POST(req: Request) {
       );
     }
 
-    const nickname = data.nickname || data.username;
+    const nickname = typeof data.nickname === 'string' && data.nickname.trim()
+      ? data.nickname.trim()
+      : username;
+    const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
       data: {
-        username: data.username,
+        username,
         nickname,
-        email: data.email,
-        age: data.age ?? null,
+        email,
+        password: passwordHash,
+        age: typeof data.age === 'number' ? data.age : null,
         ageGroup: data.ageGroup || 'adult',
         language: data.language || 'en',
-        aiName: data.aiName || 'Lumi',
-        profile: data.interests
-          ? JSON.stringify({ interests: data.interests })
-          : undefined,
+        aiName,
       },
     });
 

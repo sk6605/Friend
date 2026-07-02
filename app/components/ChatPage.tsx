@@ -10,6 +10,7 @@ import MoodSelector, { getMoodMessage } from '@/app/components/MoodSelect';
 import { useVoice } from '@/app/hooks/useVoice';
 import VoiceVisualizer from '@/app/components/VoiceVisualizer';
 import DailyChallengeCard from '@/app/components/DailyChallengeCard';
+import { hasMoodCheckToday, markMoodCheckToday, shouldCreateDailyMoodCheck } from '@/app/lib/moodCheck';
 
 interface Message {
   id?: string;
@@ -100,6 +101,7 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const { addConversation, updateConversationTitle } = useConversations();
   const [moodchoose, setMoodchoose] = useState(false);
+  const [showMoodSelector, setShowMoodSelector] = useState(false);
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [streak, setStreak] = useState(0);
   const { isListening, isSpeaking, transcript, error: voiceError, startListening, stopListening, speak, cancelSpeech, resetTranscript, timeRemaining, maxDuration } = useVoice(language);
@@ -274,17 +276,11 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
     }
   }, [isLoading]);
 
-  const isMoreThan2Hours = (dateString: string) => {
-    const last = new Date(dateString).getTime();
-    const now = Date.now();
-    return now - last > 2 * 60 * 60 * 1000;
-  }
-
   /**
    * 业务逻辑：心情检测初始化 (Mood Check Initialization)
-   * 当用户需要进行心情检测或开启新对话时，创建一个“心情检测”主题的聊天室。
+   * 当用户当天还没有看过心情检测时，创建一个“心情检测”主题的聊天室。
    */
-  const createMoodConversation = useCallback(async () => {
+  const createMoodConversation = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch('/api/conversations', {
         method: 'POST',
@@ -310,8 +306,13 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
           id: 'mood-selector',
         },
       ]);
+      markMoodCheckToday(userId);
+      setMoodchoose(false);
+      setShowMoodSelector(true);
+      return true;
     } catch (err) {
       console.error('create mood conversation error:', err);
+      return false;
     }
   }, [userId, language, addConversation, setCurrentConvId, setMessages]);
 
@@ -333,6 +334,10 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
 
         // Case 1: brand new chat
         if (msgs.length === 0) {
+          const shouldShowMood = !hasMoodCheckToday(userId);
+          if (shouldShowMood) markMoodCheckToday(userId);
+          setMoodchoose(false);
+          setShowMoodSelector(shouldShowMood);
           setMessages([
             {
               role: 'assistant',
@@ -346,20 +351,17 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
         // Case 2: mood check-in — only on auto-load (first visit), once per session
         if (checkMood) {
           const lastMsg = msgs[msgs.length - 1];
-          const alreadyChecked = sessionStorage.getItem('mood_checked');
-
-          if (
-            !alreadyChecked &&
-            lastMsg.createdAt &&
-            isMoreThan2Hours(lastMsg.createdAt)
-          ) {
-            sessionStorage.setItem('mood_checked', '1');
+          if (shouldCreateDailyMoodCheck({
+            userId,
+            lastMessageCreatedAt: lastMsg.createdAt,
+          })) {
             await createMoodConversation();
             return;
           }
         }
 
         // Normal: show the conversation messages
+        setShowMoodSelector(false);
         setMessages(msgs);
       }
 
@@ -487,11 +489,12 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
                 return (
                   <div key={index} id={msg.id ? `msg-${msg.id}` : undefined}>
                     <ChatBubble role={msg.role} content={msg.content} messageId={msg.id} createdAt={msg.createdAt} onDelete={handleDeleteMessage} profilePicture={profilePicture} nickname={nickname} isHighlighted={!!highlightId && msg.id === highlightId} fileAttachments={attachments} />
-                    {(msg.id === 'mood-selector' || msg.id === 'greeting-new') && !moodchoose && (
+                    {(msg.id === 'mood-selector' || msg.id === 'greeting-new') && showMoodSelector && !moodchoose && (
                       <MoodSelector
                         language={language}
                         onSelect={(mood) => {
                           setMoodchoose(true);
+                          setShowMoodSelector(false);
                           handleSendMessage(getMoodMessage(language, mood));
                         }}
                       />
@@ -580,5 +583,4 @@ export default function ChatPage({ conversationId, userId, aiName, language, pro
   );
 
 }
-
 

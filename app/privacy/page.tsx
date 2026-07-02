@@ -57,7 +57,7 @@ export default function PrivacyPolicyPage() {
             
             <h3 className="font-medium text-neutral-700 dark:text-neutral-300 mt-4 mb-2">2.1 Information You Provide</h3>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong>Email address</strong> — for account registration and OTP login verification</li>
+              <li><strong>Email address</strong> — for account registration and password login</li>
               <li><strong>Username / Nickname</strong> — for personalized interactions</li>
               <li><strong>Age</strong> (optional) — for age-appropriate content and safety threshold adjustment</li>
               <li><strong>City</strong> (optional) — for weather notifications and localized services</li>

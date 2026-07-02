@@ -553,7 +553,7 @@ export default function LandingPage({ onGetStarted, onLogin }: LandingPageProps)
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {[
-              { step: '01', title: 'Create Account', desc: 'Quick sign-up with email — no password needed, just OTP verification.', icon: '✉️', bg: 'linear-gradient(135deg, #e8daff, #f3e8ff)' },
+              { step: '01', title: 'Create Account', desc: 'Quick sign-up with Gmail, age, password, and your AI name.', icon: '✉️', bg: 'linear-gradient(135deg, #e8daff, #f3e8ff)' },
               { step: '02', title: 'Pick a Personality', desc: 'Choose an AI friend style that matches yours. Switch anytime you like.', icon: '🎭', bg: 'linear-gradient(135deg, #fce7f3, #fdf2f8)' },
               { step: '03', title: 'Start Chatting', desc: 'Talk naturally like you would with a real friend — Lumi remembers everything.', icon: '💬', bg: 'linear-gradient(135deg, #d1fae5, #ecfdf5)' },
             ].map((item) => (
