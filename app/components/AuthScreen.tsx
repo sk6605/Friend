@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import OnboardingChat from './Onboardingchat';
 import LoginForm from './LoginForm';
+import ForgotPasswordForm from './ForgotPasswordForm';
 import DemoChat from './DemoChat';
 import { hasRegistered, markRegistered } from '@/app/utils/auth';
 
-type AuthView = 'register' | 'login';
+type AuthView = 'register' | 'login' | 'forgot';
 
 interface AuthScreenProps {
   onAuth: (userId: string) => void;
@@ -20,10 +21,13 @@ interface AuthScreenProps {
  * 架构：通过 React 本地状态 (`view`) 结合外部注入的回调 (`onAuth`) 控制单页应用(SPA)体验，无需路由跳转即可完成复杂的鉴权流程编排。
  */
 export default function AuthScreen({ onAuth, initialView = 'login', onBack }: AuthScreenProps) {
-  // 控制当前展示的是登录还是注册面板
+  // 控制当前展示的是登录、注册还是忘记密码面板
   const [view, setView] = useState<AuthView>(initialView);
   // 试用版大门开关（免登录体验 Chat 组件）
   const [showDemo, setShowDemo] = useState(false);
+  // 忘记密码流程回传：登录页预填邮箱 + 顶部成功提示
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginNotice, setLoginNotice] = useState('');
 
   // ─── 视图分支 1：向新用户展示包含拟态聊天的注册流 (Onboarding) ───
   if (view === 'register') {
@@ -59,6 +63,12 @@ export default function AuthScreen({ onAuth, initialView = 'login', onBack }: Au
           onRegister={() => setView('register')}
           onTry={() => setShowDemo(true)}
           onBack={onBack}
+          onForgot={() => {
+            setLoginNotice('');
+            setView('forgot');
+          }}
+          initialEmail={loginEmail}
+          notice={loginNotice}
         />
         {showDemo && (
           <DemoChat
@@ -70,6 +80,22 @@ export default function AuthScreen({ onAuth, initialView = 'login', onBack }: Au
           />
         )}
       </>
+    );
+  }
+
+  // ─── 视图分支 3：忘记密码流程（取 OTP → 重置密码）───
+  if (view === 'forgot') {
+    return (
+      <ForgotPasswordForm
+        initialEmail={loginEmail}
+        onBack={() => setView('login')}
+        onDone={(email) => {
+          // 重置成功：回登录页，预填邮箱并提示用新密码登入
+          setLoginEmail(email);
+          setLoginNotice('Password reset successfully. Please sign in with your new password.');
+          setView('login');
+        }}
+      />
     );
   }
 

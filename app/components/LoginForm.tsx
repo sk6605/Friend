@@ -7,15 +7,20 @@ interface LoginFormProps {
   onRegister?: () => void;
   onTry?: () => void;
   onBack?: () => void;
+  onForgot?: () => void;
+  /** 从忘记密码流程返回时预填的邮箱 */
+  initialEmail?: string;
+  /** 顶部提示条（如密码重置成功） */
+  notice?: string;
 }
 
 /**
  * 组件：标准登录表单 (LoginForm)
  * 作用：处理账户登入，使用邮箱和密码调用 /api/auth/login。
  */
-export default function LoginForm({ onLogin, onRegister, onTry, onBack }: LoginFormProps) {
+export default function LoginForm({ onLogin, onRegister, onTry, onBack, onForgot, initialEmail = '', notice }: LoginFormProps) {
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -89,6 +94,13 @@ export default function LoginForm({ onLogin, onRegister, onTry, onBack }: LoginF
           Sign in with your Gmail and password
         </p>
 
+        {/* 成功回执气泡：如从忘记密码流程重置成功返回 */}
+        {notice && (
+          <div className="mb-6 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-4 py-3 rounded-xl">
+            {notice}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* 邮箱输入槽 */}
           <div>
@@ -118,6 +130,18 @@ export default function LoginForm({ onLogin, onRegister, onTry, onBack }: LoginF
               required
               className={inputClass}
             />
+            {/* 忘记密码入口 */}
+            {onForgot && (
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  onClick={onForgot}
+                  className="text-xs text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium transition-colors"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
           </div>
 
           {/* 错误回执气泡 */}
