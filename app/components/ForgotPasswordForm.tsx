@@ -82,31 +82,20 @@ export default function ForgotPasswordForm({ onBack, onDone, initialEmail = '' }
     }
   };
 
-  /** 第 2 步：校验 OTP（verifyOnly 预检，不消费验证码） */
-  const handleVerifyCode = async (e: React.FormEvent) => {
+  /**
+   * 第 2 步：进入设置新密码。
+   * 刻意不做后端预检——「只校验不消费」的接口本身就是暴力猜码的预言机。
+   * 验证码只暂存在本地，真正的校验发生在第 3 步的单次提交里；若码错，
+   * 提交会失败并把用户退回本步重输。
+   */
+  const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: code.trim(), verifyOnly: true }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Verification failed');
-        return;
-      }
-
-      setStep('password');
-    } catch {
-      setError('Something went wrong');
-    } finally {
-      setLoading(false);
+    if (code.trim().length !== 6) {
+      setError('Enter the 6-digit code');
+      return;
     }
+    setStep('password');
   };
 
   /** 重新发送验证码 */
@@ -123,12 +112,13 @@ export default function ForgotPasswordForm({ onBack, onDone, initialEmail = '' }
     }
   };
 
-  /** 第 3 步：提交新密码（后端二次校验 OTP 并消费） */
+  /** 第 3 步：单次提交 —— 后端在此校验 OTP、消费验证码并改密 */
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (newPassword.length < 8) {
+    // 与后端一致：按 trim 后长度校验（存储的是 trim 后的密码）
+    if (newPassword.trim().length < 8) {
       setError('Password must be at least 8 characters');
       return;
     }
@@ -147,6 +137,13 @@ export default function ForgotPasswordForm({ onBack, onDone, initialEmail = '' }
       const data = await res.json();
 
       if (!res.ok) {
+        // 验证码错误/过期/被限流 → 退回验证码步重输（密码保留在 state）
+        if (res.status === 401 || res.status === 429) {
+          setStep('otp');
+        } else if (res.status === 404) {
+          // 该邮箱无账号 → 退回邮箱步
+          setStep('email');
+        }
         setError(data.error || 'Failed to reset password');
         return;
       }
@@ -232,7 +229,7 @@ export default function ForgotPasswordForm({ onBack, onDone, initialEmail = '' }
               <span className="font-medium text-neutral-700 dark:text-neutral-200">{maskedEmail}</span>
             </p>
 
-            <form onSubmit={handleVerifyCode} className="space-y-5">
+            <form onSubmit={handleContinue} className="space-y-5">
               <div>
                 <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
                   Verification code
@@ -255,8 +252,8 @@ export default function ForgotPasswordForm({ onBack, onDone, initialEmail = '' }
                 </div>
               )}
 
-              <button type="submit" disabled={loading || code.length !== 6} className={primaryBtnClass} style={{ backgroundColor: '#7C3AED' }}>
-                {loading ? 'Verifying...' : 'Verify code'}
+              <button type="submit" disabled={code.length !== 6} className={primaryBtnClass} style={{ backgroundColor: '#7C3AED' }}>
+                Continue
               </button>
             </form>
 

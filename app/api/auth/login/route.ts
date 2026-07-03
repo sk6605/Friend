@@ -16,7 +16,9 @@ export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    const submittedPassword = typeof password === 'string' ? password : '';
+    // Trim to match registration + password reset, which both store the trimmed
+    // value — otherwise whitespace-padded input would never match the stored hash.
+    const submittedPassword = typeof password === 'string' ? password.trim() : '';
 
     if (!normalizedEmail || !submittedPassword) {
       return Response.json(
