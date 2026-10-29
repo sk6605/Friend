@@ -6,6 +6,18 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "50mb",
     },
   },
+  async rewrites() {
+    // Set BACKEND_URL only on the Amplify frontend: proxy /api/* to the EC2 backend.
+    // beforeFiles is required, otherwise the local app/api routes match first.
+    if (!process.env.BACKEND_URL) return [];
+    return {
+      beforeFiles: [
+        { source: "/api/:path*", destination: `${process.env.BACKEND_URL}/api/:path*` },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async headers() {
     return [
       {

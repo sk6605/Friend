@@ -10,6 +10,8 @@
  *   rain-alert         → every day at 08:00 AM
  */
 export async function register() {
+  // Only the backend server (EC2) runs cron jobs; the Amplify frontend must not
+  if (process.env.ENABLE_CRON !== 'true') return;
   // Only run in Node.js runtime (not Edge), and not during Next.js build
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
   if (process.env.NEXT_PHASE === 'phase-production-build') return;

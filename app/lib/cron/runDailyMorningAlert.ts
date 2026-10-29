@@ -4,10 +4,12 @@ import { sendPushNotification } from '@/app/lib/onesignal';
 import { getPersonaPrompt } from '@/app/lib/ai/personaPrompts';
 import OpenAI from 'openai';
 
-// 初始化 OpenAI 客户端，读取环境变量中的 key
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// 按需创建 OpenAI 客户端（不在模块顶层创建，否则 next build 收集页面数据时缺 key 会直接失败）
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY not set');
+  return new OpenAI({ apiKey });
+}
 
 // ─── Helpers (辅助工具函数库) ──────────────────────────────────────────────────────
 
@@ -195,7 +197,7 @@ Respond with ONLY this JSON, nothing else:
     try {
       console.log(`[MorningAlert] AI generation attempt ${attempt}/${MAX_RETRIES} for ${ctx.nickname}`);
 
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAIClient().chat.completions.create({
         model: 'gpt-4.1-mini', // 实际上使用的是性价比高的模型系列
         messages: [
           { role: 'system', content: systemPrompt },
