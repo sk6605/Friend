@@ -1,0 +1,82 @@
+# push 到 main → 通过 SSM 在 EC2 上执行 deploy/deploy.sh（不用 SSH、repo 里不存 AWS key）
+#
+# 需要在 GitHub repo → Settings → Secrets and variables → Actions → Variables 里设置：
+#   AWS_REGION           EC2 所在区域，例如 ap-southeast-5
+#   AWS_DEPLOY_ROLE_ARN  GitHub OIDC 可以 assume 的 IAM role ARN（见 docs/deploy-aws.md）
+#
+# 修改 S3 上的 env 后，在 Actions 页面手动 Run workflow 即可让 EC2 重新拉取并部署。
+name: Deploy backend (EC2)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Find EC2 instance (tag App=friend-api)
+        id: ec2
+        run: |
+          IDS=$(aws ec2 describe-instances \
+            --filters Name=tag:App,Values=friend-api Name=instance-state-name,Values=running \
+            --query 'Reservations[].Instances[].InstanceId' --output text)
+          COUNT=$(echo "$IDS" | wc -w)
+          if [ "$COUNT" -ne 1 ]; then
+            echo "::error::期望正好 1 台 running 且 tag App=friend-api 的实例，实际 $COUNT 台：$IDS"
+            exit 1
+          fi
+          echo "id=$IDS" >> "$GITHUB_OUTPUT"
+
+      - name: Run deploy.sh via SSM
+        env:
+          INSTANCE_ID: ${{ steps.ec2.outputs.id }}
+        run: |
+          CMD='sudo -iu ubuntu bash -c "set -e; git -C ~/friend-repo fetch -q origin main; git -C ~/friend-repo reset -q --hard origin/main; bash ~/friend-repo/deploy/deploy.sh"'
+          PARAMS=$(jq -n --arg c "$CMD" '{commands: [$c], executionTimeout: ["1800"]}')
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${GITHUB_SHA::7}" \
+            --parameters "$PARAMS" \
+            --query Command.CommandId --output text)
+          echo "SSM command: $CMD_ID"
+
+          # aws ssm wait 最多只等约 100 秒，build 要更久，所以自己轮询
+          while true; do
+            STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$STATUS" in
+              Pending|InProgress|Delayed) sleep 15 ;;
+              *) break ;;
+            esac
+          done
+
+          echo "----- stdout -----"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text
+          echo "----- stderr -----"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query StandardErrorContent --output text
+
+          echo "Status: $STATUS"
+          [ "$STATUS" = "Success" ]
