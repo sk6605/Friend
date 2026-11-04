@@ -5,7 +5,7 @@ import { Redis } from '@upstash/redis';
 
 // ─── Upstash Redis Rate Limiting ─────────────────────────────────────────────
 // Requires env vars: UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
-// Set these in Vercel dashboard → Project → Settings → Environment Variables
+// Set these in the backend env file only (S3 → EC2), NOT in Amplify — see docs/deploy-aws.md
 // Get them from: https://console.upstash.com
 
 const isUpstashConfigured =
@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Vercel forwards the real IP via x-forwarded-for
+  // The first x-forwarded-for entry is the original client IP (Amplify → nginx append theirs after it)
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded ? forwarded.split(',')[0].trim() : '127.0.0.1';
 
