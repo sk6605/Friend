@@ -1,0 +1,21 @@
+# Amplify 前端构建配置（Next.js SSR）
+# 只需要一个环境变量 BACKEND_URL（在 Amplify Console 设置），后端 secret 一律不放这里。
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - nvm install 22
+        - nvm use 22
+        - npm ci
+    build:
+      commands:
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
